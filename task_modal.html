@@ -1,0 +1,95 @@
+<!-- Modal Form -->
+<div id="taskModal"
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div
+        class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] modal-animate">
+        <div
+            class="bg-gradient-to-r from-emerald-800 to-teal-800 text-white p-4 sm:p-5 flex items-center justify-between">
+            <h3 id="modalTitle" class="font-bold text-base sm:text-lg flex items-center">
+                <i class="fas fa-edit mr-2 text-emerald-300"></i> บันทึกภาระงานใหม่
+            </h3>
+            <button onclick="closeTaskModal()"
+                class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="taskForm" onsubmit="submitTaskForm(event)" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+            <input type="hidden" id="formRowId" value="">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">
+                        วันที่ปฏิบัติงาน <span class="text-rose-500">*</span>
+                    </label>
+
+                    <div class="relative flex items-center">
+                        <input type="text" id="taskDate" placeholder="DD/MM/YYYY" required
+                            class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3 pr-10 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <div class="absolute right-3.5 text-slate-400 pointer-events-none">
+                            <i class="far fa-calendar-alt text-base"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">ชื่อผู้บันทึก <span
+                            class="text-rose-500">*</span></label>
+                    <select id="taskRecorder" required
+                        class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </select>
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <div class="flex items-center justify-between">
+                    <label
+                        class="text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-800 flex items-center">
+                        <i class="fas fa-list-ol mr-1.5"></i> รายการงาน
+                    </label>
+                    <button type="button" onclick="addTaskRow()"
+                        class="text-xs bg-emerald-100 text-emerald-800 hover:bg-emerald-200 font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1">
+                        <i class="fas fa-plus"></i>
+                        <span>เพิ่มรายการ</span>
+                    </button>
+                </div>
+
+                <div id="taskItemsContainer" class="space-y-3"></div>
+            </div>
+
+            <div class="pt-2">
+                <label class="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">หมายเหตุเพิ่มเติม</label>
+                <textarea id="taskNote" rows="2" placeholder="ระบุรายละเอียดหรือหมายเหตุเพิ่มเติม (ถ้ามี)"
+                    class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"></textarea>
+            </div>
+
+            <div
+                class="bg-emerald-50/80 p-3.5 rounded-2xl flex items-center justify-between text-xs text-emerald-900 border border-emerald-100">
+                <div>
+                    <span class="text-slate-500">จำนวนรายการ:</span> <strong id="modalTotalItems"
+                        class="text-slate-800">0</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500">หน่วยงานรวม:</span> <strong id="modalTotalQty"
+                        class="text-slate-800">0</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500">คะแนนรวม:</span> <strong id="modalTotalScore"
+                        class="text-emerald-700 text-sm font-bold">0</strong>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeTaskModal()"
+                    class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">
+                    ยกเลิก
+                </button>
+                <button type="submit" id="submitBtn"
+                    class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg flex items-center">
+                    <i class="fas fa-save mr-2"></i>
+                    <span>บันทึกข้อมูลทั้งหมด</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

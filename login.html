@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="image/contract.png">
+    <title>เข้าสู่ระบบ - ระบบบันทึกงานและคะแนนปฏิบัติงาน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 border border-slate-200">
+        <div class="text-center mb-8">
+            <div
+                class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full mb-4">
+                <i class="fas fa-user-lock text-2xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800">เข้าสู่ระบบ</h2>
+            <p class="text-sm text-slate-500 mt-1">ระบบบันทึกงานและคะแนนปฏิบัติงาน</p>
+        </div>
+
+        <form onsubmit="handleLogin(event)" class="space-y-5">
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อผู้ใช้งาน (Username)</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <input type="text" id="loginUsername"
+                        class="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        placeholder="กรอก username" required>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสผ่าน (Password)</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i class="fas fa-key"></i>
+                    </span>
+                    <input type="password" id="loginPassword"
+                        class="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        placeholder="กรอก password" required>
+                </div>
+            </div>
+
+            <div id="errorMessage"
+                class="hidden text-rose-500 text-xs text-center font-medium bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+            </div>
+
+            <button type="submit" id="submitBtn"
+                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors shadow-sm flex items-center justify-center">
+                <span>เข้าสู่ระบบ</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        async function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('loginUsername').value;
+            const pass = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const submitBtn = document.getElementById('submitBtn');
+
+            errorDiv.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังเข้าสู่ระบบ...`;
+
+            try {
+                const response = await fetch('db.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const res = await response.json();
+
+                if (res.success) {
+                    // เข้าสู่ระบบสำเร็จ ย้ายไปหน้าหลัก
+                    window.location.href = 'index.html';
+                } else {
+                    errorDiv.innerText = res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.innerText = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>เข้าสู่ระบบ</span>`;
+            }
+        }
+    </script>
+</body>
+
+</html>

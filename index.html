@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="image/contract.png">
+    <title>ระบบบันทึกงานและคะแนนปฏิบัติงาน</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font - Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Flatpickr CSS & JS (พร้อม ภาษาไทย) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+    <!-- Flatpickr Month Select Plugin -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f0fdf4;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #a7f3d0;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34d399;
+        }
+
+        .modal-animate {
+            animation: modalFadeIn 0.25s ease-out forwards;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body class="text-slate-700 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white">
+
+
+    <header
+        class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white text-xl shadow-inner border border-white/30">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight">ระบบบันทึกงานและคะแนนปฏิบัติงาน</h1>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3 self-end md:self-auto">
+                    <span id="currentUserDisplay"
+                        class="text-xs sm:text-sm font-medium text-emerald-100 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20"></span>
+                    <button onclick="handleLogout()" title="ออกจากระบบ"
+                        class="text-xs sm:text-sm px-3 py-2 bg-rose-500/80 hover:bg-rose-600 text-white rounded-xl text-xs font-medium transition-colors">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span> ออกจากระบบ</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between border-b border-emerald-600/40 mt-4 pt-1 gap-2">
+                <div class="flex space-x-2 overflow-x-auto flex-1 pb-1 sm:pb-0">
+                    <button id="tabTasksBtn" type="button" onclick="switchMainTab('tasks')"
+                        class="px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl bg-white text-emerald-800 flex items-center space-x-2 transition-all shadow-sm whitespace-nowrap">
+                        <i class="fas fa-list-check"></i>
+                        <span>รายการงานทั้งหมด</span>
+                    </button>
+
+                    <button id="tabSummaryBtn" type="button" onclick="switchMainTab('summary')"
+                        class="px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl bg-emerald-900/40 text-emerald-100 flex items-center space-x-2 transition-all whitespace-nowrap">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>สรุปการทำงานรายเดือน</span>
+                    </button>
+                </div>
+
+                <div class="flex-shrink-0 mb-1 sm:mb-0">
+                    <button onclick="openTaskModal()"
+                        class="bg-emerald-400 hover:bg-emerald-300 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all shadow-md hover:shadow-lg flex items-center space-x-2 transform active:scale-95 whitespace-nowrap">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>บันทึกงานใหม่</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        </div>
+    </header>
+
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <div id="loadingOverlay" class="flex flex-col items-center justify-center py-16 text-emerald-700 space-y-3">
+            <i class="fas fa-circle-notch fa-spin text-4xl"></i>
+            <p class="text-sm font-medium animate-pulse">กำลังโหลดข้อมูลจากระบบ...</p>
+        </div>
+
+        <div id="taskListContainer"></div>
+        <div id="summaryContainer" class="hidden"></div>
+        <div id="modalContainer"></div>
+
+    </main>
+
+
+    <!-- Toast Notification -->
+    <div id="toast"
+        class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 border border-slate-700">
+        <i id="toastIcon" class="fas fa-info-circle text-emerald-400 text-lg"></i>
+        <p id="toastMessage" class="text-xs sm:text-sm font-medium">ข้อความแจ้งเตือน</p>
+    </div>
+
+    <script>
+
+        let globalTasks = [];
+        let globalEmployees = [];
+        let globalJobTypes = [];
+        let currentUser = null;
+        //  let currentViewMode = 'table';
+        let currentTab = 'tasks';
+        let rowCounter = 0;
+        let summaryMonthPickerInstance = null;
+        let datePickerInstance = null;
+
+
+        window.onload = async function () {
+            await loadHtmlComponents();
+
+            //  ตั้งค่าวันที่ปัจจุบัน
+            const todayStr = new Date().toISOString().substring(0, 10);
+            const taskDateEl = document.getElementById('taskDate');
+            if (taskDateEl) taskDateEl.value = todayStr;
+
+            //  ดึงข้อมูลจาก Backend 
+            await loadDataFromBackend();
+        };
+
+        async function loadHtmlComponents() {
+            try {
+                const [taskListRes, summaryRes, modalRes] = await Promise.all([
+                    fetch('task_list.html'),
+                    fetch('summary_view.html'),
+                    fetch('task_modal.html')
+                ]);
+
+                const taskListHtml = await taskListRes.text();
+                const summaryHtml = await summaryRes.text();
+                const modalHtml = await modalRes.text();
+
+                const taskListEl = document.getElementById('taskListContainer');
+                const summaryEl = document.getElementById('summaryContainer');
+                const modalEl = document.getElementById('modalContainer');
+
+                if (taskListEl) taskListEl.innerHTML = taskListHtml;
+                if (summaryEl) summaryEl.innerHTML = summaryHtml;
+                if (modalEl) modalEl.innerHTML = modalHtml;
+
+                initSummaryMonthPicker();
+
+            } catch (err) {
+                console.error('ไม่สามารถโหลด Component ได้:', err);
+            }
+        }
+
+
+        async function loadDataFromBackend() {
+            try {
+                const loadingEl = document.getElementById('loadingOverlay');
+                if (loadingEl) loadingEl.classList.remove('hidden');
+
+                const response = await fetch('db.php?action=get_data');
+                const res = await response.json();
+
+                if (res.auth_required) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                if (res && res.success) {
+                    currentUser = res.currentUser;
+                    globalTasks = res.rows || [];
+                    globalEmployees = res.employees || [];
+                    globalJobTypes = res.jobTypes || [];
+
+                    const userDisplay = document.getElementById('currentUserDisplay');
+                    if (userDisplay && currentUser) {
+                        userDisplay.innerHTML = `<i class="fas fa-user-circle mr-1"></i> ${currentUser.name} (${currentUser.role})`;
+                    }
+
+                    populateEmployeeDropdowns();
+                    populateJobTypeDropdowns();
+                    filterAndRenderTasks();
+                    renderMonthlySummary();
+
+                    if (loadingEl) loadingEl.classList.add('hidden');
+
+                    const tabTasksEl = document.getElementById('tabTasks');
+                    if (tabTasksEl) tabTasksEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            }
+            initSummaryMonthPicker();
+            renderMonthlySummary();
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('db.php?action=logout');
+                window.location.href = 'login.html';
+            } catch (err) {
+                window.location.href = 'login.html';
+            }
+        }
+
+        async function submitTaskForm(e) {
+            e.preventDefault();
+
+            const rowId = document.getElementById('formRowId')?.value || '';
+            const dateInput = document.getElementById('taskDate')?.value || '';
+            const recorder = document.getElementById('taskRecorder')?.value || '';
+            const note = document.getElementById('taskNote')?.value || '';
+
+            let date = dateInput;
+            if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
+                const d = datePickerInstance.selectedDates[0];
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                date = `${year}-${month}-${day}`;
+            }
+
+            const rows = document.querySelectorAll('#taskItemsContainer > div');
+            const items = [];
+
+            rows.forEach(r => {
+                const select = r.querySelector('.item-job-type');
+                const qtyInput = r.querySelector('.item-qty');
+
+                if (select && qtyInput) {
+                    const jobType = select.value;
+                    const qty = parseFloat(qtyInput.value) || 0;
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
+
+                    if (jobType && qty > 0) {
+                        items.push({
+                            jobType: jobType,
+                            quantity: qty,
+                            score: qty * scorePerUnit
+                        });
+                    }
+                }
+            });
+
+            if (items.length === 0) {
+                showToast('กรุณาระบุข้อมูลประเภทงานและจำนวนอย่างน้อย 1 รายการ', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...`;
+            }
+
+            const payload = {
+                rowId: rowId,
+                date: date,
+                recorder: recorder,
+                note: note,
+                items: items
+            };
+
+            try {
+                const response = await fetch('db.php?action=save_task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const res = await response.json();
+
+                if (res && res.success) {
+                    showToast(res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                    closeTaskModal();
+                    loadDataFromBackend();
+                } else {
+                    showToast(res?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+                }
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message, 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> บันทึกข้อมูลทั้งหมด`;
+                }
+            }
+        }
+
+
+        function formatDateToDMY(dateStr) {
+            if (!dateStr) return '-';
+            const parts = dateStr.includes('-') ? dateStr.split('-') : dateStr.split('/');
+            if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                } else {
+                    return `${parts[0]}/${parts[1]}/${parts[2]}`;
+                }
+            }
+            return dateStr;
+        }
+
+
+        function renderTableRows(tasks) {
+            const tbody = document.getElementById('taskTableBody');
+
+            if (!tbody) return;
+
+            if (tasks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลภาระงานที่ตรงตามเงื่อนไข</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = tasks.map(t => `
+        <tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">${formatDateToDMY(t.date)}</td>
+          <td class="px-4 py-3.5 text-slate-800 font-semibold">${t.recorder || '-'}</td>
+            <td class="px-4 py-3.5 text-slate-700">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100/80 text-emerald-800">
+                    ${t.jobType || '-'}
+                </span>
+            </td>
+            <td class="px-4 py-3.5 text-center text-slate-700 font-medium">${t.quantity || 0}</td>
+            <td class="px-4 py-3.5 text-center font-bold text-emerald-600">${t.score ? Number(t.score).toLocaleString('th-TH') : 0}</td>
+            <td class="px-4 py-3.5 text-slate-500 max-w-xs truncate">${t.note || '-'}</td>
+            <td class="px-4 py-3.5 text-center">
+                <button onclick="editTask(${t.id})" class="text-slate-400 hover:text-emerald-600 p-1.5 transition-colors rounded-lg hover:bg-emerald-50" title="แก้ไข">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+        }
+
+        function renderCardItems(tasks) {
+            const container = document.getElementById('cardViewContainer');
+            if (!container) return;
+
+            if (tasks.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลภาระงานที่ตรงตามเงื่อนไข</div>`;
+                return;
+            }
+
+            container.innerHTML = tasks.map(t => `
+        <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm space-y-3 hover:shadow-md transition-all">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg">
+<i class="far fa-calendar-alt mr-1.5"></i>${formatDateToDMY(t.date)}
+                </span>
+                <button onclick="editTask(${t.id})" class="text-slate-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-slate-50" title="แก้ไข">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </div>
+            <div>
+                <h4 class="font-bold text-slate-800 text-sm flex items-center">
+                    <i class="fas fa-user-circle text-emerald-600 mr-1.5"></i>${t.recorder || 'ไม่ระบุผู้บันทึก'}
+                </h4>
+                <p class="text-xs text-slate-600 mt-1"><strong class="text-slate-700">ประเภทงาน:</strong> ${t.jobType || '-'}</p>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                <span class="text-slate-500">จำนวน: <strong class="text-slate-800">${t.quantity || 0}</strong> หน่วย</span>
+                <span class="text-emerald-700 font-bold bg-emerald-100/60 px-2.5 py-1 rounded-lg">${t.score ? Number(t.score).toLocaleString('th-TH') : 0} คะแนน</span>
+            </div>
+        </div>
+    `).join('');
+        }
+
+        function filterAndRenderTasks() {
+            const filterDate = document.getElementById('filterDate')?.value || '';
+            const filterEmp = document.getElementById('filterEmployee')?.value || 'ALL';
+            const filterJob = document.getElementById('filterJobType')?.value || 'ALL';
+            const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
+
+            const filtered = globalTasks.filter(t => {
+                const matchDate = !filterDate || t.date === filterDate;
+                const matchEmp = filterEmp === 'ALL' || t.recorder === filterEmp;
+                const matchJob = filterJob === 'ALL' || (t.jobType && t.jobType.includes(filterJob));
+                const matchSearch = !search ||
+                    (t.note && t.note.toLowerCase().includes(search)) ||
+                    (t.recorder && t.recorder.toLowerCase().includes(search)) ||
+                    (t.jobType && t.jobType.toLowerCase().includes(search));
+
+                return matchDate && matchEmp && matchJob && matchSearch;
+            });
+
+            renderTableRows(filtered);
+            renderCardItems(filtered);
+        }
+
+        /* function resetFilters() {
+             const filterDateEl = document.getElementById('filterDate');
+             const filterEmpEl = document.getElementById('filterEmployee');
+             const filterJobEl = document.getElementById('filterJobType');
+             const searchInputEl = document.getElementById('searchInput');
+ 
+             if (filterDateEl) filterDateEl.value = '';
+             if (filterEmpEl) filterEmpEl.value = 'ALL';
+             if (filterJobEl) filterJobEl.value = 'ALL';
+             if (searchInputEl) searchInputEl.value = '';
+             filterAndRenderTasks();
+         }  */
+
+        /* function switchViewMode(mode) {
+             currentViewMode = mode;
+             const tableView = document.getElementById('tableViewContainer');
+             const cardView = document.getElementById('cardViewContainer');
+            // const viewTableBtn = document.getElementById('viewTableBtn');
+            // const viewCardBtn = document.getElementById('viewCardBtn');
+ 
+             if (mode === 'table') {
+                 tableView?.classList.remove('hidden');
+                 cardView?.classList.add('hidden');
+               //  viewTableBtn?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
+               //  viewTableBtn?.classList.remove('text-slate-600');
+               //  viewCardBtn?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
+               //  viewCardBtn?.classList.add('text-slate-600');
+             } else {
+                 tableView?.classList.add('hidden');
+                 cardView?.classList.remove('hidden');
+                // viewCardBtn?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
+               //  viewCardBtn?.classList.remove('text-slate-600');
+               //  viewTableBtn?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
+               //  viewTableBtn?.classList.add('text-slate-600');
+             }
+         } */
+
+        // อัปเดตฟังก์ชัน switchMainTab
+        function switchMainTab(tab) {
+            currentTab = tab;
+            const taskListContainer = document.getElementById('taskListContainer');
+            const summaryContainer = document.getElementById('summaryContainer');
+            const tabTasksBtn = document.getElementById('tabTasksBtn');
+            const tabSummaryBtn = document.getElementById('tabSummaryBtn');
+
+            if (tab === 'tasks') {
+                if (taskListContainer) taskListContainer.classList.remove('hidden');
+                if (summaryContainer) summaryContainer.classList.add('hidden');
+
+                tabTasksBtn?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
+                tabTasksBtn?.classList.remove('bg-emerald-900/40', 'text-emerald-100');
+                tabSummaryBtn?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
+                tabSummaryBtn?.classList.add('bg-emerald-900/40', 'text-emerald-100');
+            } else {
+                if (taskListContainer) taskListContainer.classList.add('hidden');
+                if (summaryContainer) summaryContainer.classList.remove('hidden');
+
+                tabSummaryBtn?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
+                tabSummaryBtn?.classList.remove('bg-emerald-900/40', 'text-emerald-100');
+                tabTasksBtn?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
+                tabTasksBtn?.classList.add('bg-emerald-900/40', 'text-emerald-100');
+
+                renderMonthlySummary();
+            }
+        }
+
+        function populateEmployeeDropdowns() {
+            const filterEmp = document.getElementById('filterEmployee');
+            const summaryEmp = document.getElementById('summaryFilterEmployee');
+            const taskRecorderSelect = document.getElementById('taskRecorder');
+
+            let optionsHtml = '<option value="ALL">-- แสดงทั้งหมด --</option>';
+            let recorderOptionsHtml = '<option value="">-- เลือกผู้บันทึก --</option>';
+
+            globalEmployees.forEach(emp => {
+                const cleanName = emp.trim();
+                if (cleanName) {
+                    optionsHtml += `<option value="${cleanName}">${cleanName}</option>`;
+                    recorderOptionsHtml += `<option value="${cleanName}">${cleanName}</option>`;
+                }
+            });
+
+            if (filterEmp) filterEmp.innerHTML = optionsHtml;
+            if (summaryEmp) summaryEmp.innerHTML = optionsHtml.replace('-- แสดงทั้งหมด --', '-- แสดงพนักงานทุกคน --');
+            if (taskRecorderSelect) {
+                taskRecorderSelect.innerHTML = recorderOptionsHtml;
+                if (currentUser && currentUser.name) {
+                    taskRecorderSelect.value = currentUser.name;
+                }
+            }
+        }
+
+        function populateJobTypeDropdowns() {
+            const filterJob = document.getElementById('filterJobType');
+            let optionsHtml = '<option value="ALL">-- ทุกประเภทงาน --</option>';
+
+            globalJobTypes.forEach(j => {
+                optionsHtml += `<option value="${j.type}">${j.type} (${j.score} คะแนน)</option>`;
+            });
+
+            if (filterJob) filterJob.innerHTML = optionsHtml;
+        }
+
+
+        function initDatePicker() {
+            const inputEl = document.getElementById('taskDate');
+            if (!inputEl) return null;
+
+            if (datePickerInstance) return datePickerInstance;
+
+            if (typeof flatpickr !== 'undefined') {
+                datePickerInstance = flatpickr(inputEl, {
+                    locale: "th",
+                    dateFormat: "Y-m-d",
+                    altInput: true,
+                    altFormat: "d/m/Y",
+                    allowInput: true,
+                    disableMobile: "true"
+                });
+            }
+            return datePickerInstance;
+        }
+
+
+        function initSummaryMonthPicker() {
+            const inputEl = document.getElementById('summaryFilterMonth');
+            if (!inputEl || summaryMonthPickerInstance) return;
+
+            if (typeof flatpickr !== 'undefined' && typeof monthSelectPlugin !== 'undefined') {
+                summaryMonthPickerInstance = flatpickr(inputEl, {
+                    locale: "th",
+                    dateFormat: "Y-m",
+                    altInput: true,
+                    altFormat: "F Y",
+                    disableMobile: "true",
+                    plugins: [
+                        new monthSelectPlugin({
+                            shorthand: true,
+                            dateFormat: "Y-m",
+                            altFormat: "F Y"
+                        })
+                    ],
+                    onChange: function (selectedDates, dateStr) {
+                        renderMonthlySummary();
+                    }
+                });
+            }
+        }
+
+
+        function openTaskModal() {
+            const modalTitle = document.getElementById('modalTitle');
+            const formRowId = document.getElementById('formRowId');
+            const taskForm = document.getElementById('taskForm');
+            const taskModal = document.getElementById('taskModal');
+
+            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-plus-circle mr-2 text-emerald-300"></i> บันทึกภาระงานใหม่`;
+            if (formRowId) formRowId.value = '';
+            if (taskForm) taskForm.reset();
+
+            // เรียกใช้ DatePicker
+            const picker = initDatePicker();
+
+            // สร้างวันที่ปัจจุบัน
+            const today = new Date();
+
+            if (picker) {
+                picker.setDate(today);
+            } else {
+                const taskDate = document.getElementById('taskDate');
+                if (taskDate) {
+                    const day = String(today.getDate()).padStart(2, '0');
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const year = today.getFullYear();
+                    taskDate.value = `${day}/${month}/${year}`;
+                }
+            }
+
+            const container = document.getElementById('taskItemsContainer');
+            if (container) container.innerHTML = '';
+            rowCounter = 0;
+
+            addTaskRow();
+            if (taskModal) taskModal.classList.remove('hidden');
+        }
+
+        function openTaskModal() {
+            const modalTitle = document.getElementById('modalTitle');
+            const formRowId = document.getElementById('formRowId');
+            const taskForm = document.getElementById('taskForm');
+            const taskModal = document.getElementById('taskModal');
+
+            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-plus-circle mr-2 text-emerald-300"></i> บันทึกภาระงานใหม่`;
+            if (formRowId) formRowId.value = '';
+            if (taskForm) taskForm.reset();
+
+            const picker = initDatePicker();
+            const today = new Date();
+
+            if (picker) {
+                picker.setDate(today);
+            } else {
+                const taskDate = document.getElementById('taskDate');
+                if (taskDate) taskDate.value = today.toISOString().split('T')[0];
+            }
+
+            const container = document.getElementById('taskItemsContainer');
+            if (container) container.innerHTML = '';
+            rowCounter = 0;
+
+            addTaskRow();
+            if (taskModal) taskModal.classList.remove('hidden');
+        }
+
+        function closeTaskModal() {
+            const taskModal = document.getElementById('taskModal');
+            if (taskModal) taskModal.classList.add('hidden');
+        }
+
+        function addTaskRow(jobType = '', quantity = 1) {
+            rowCounter++;
+            const rowId = `item_row_${rowCounter}`;
+            const container = document.getElementById('taskItemsContainer');
+            if (!container) return;
+
+            const cleanJobType = jobType ? jobType.toString().trim() : '';
+
+            let jobOptionsHtml = '<option value="">-- เลือกประเภทงาน --</option>';
+            globalJobTypes.forEach(j => {
+                const currentType = (j.type || j.type_name || '').toString().trim();
+                const selected = (currentType.toLowerCase() === cleanJobType.toLowerCase()) ? 'selected' : '';
+                jobOptionsHtml += `<option value="${currentType}" data-score="${j.score}" ${selected}>${currentType} (${j.score} คะแนน/หน่วย)</option>`;
+            });
+
+            const rowElement = document.createElement('div');
+            rowElement.id = rowId;
+            rowElement.className = 'flex items-center space-x-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200';
+            rowElement.innerHTML = `
+            <div class="flex-1">
+                <select onchange="calculateModalTotals()" class="item-job-type w-full bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+                    ${jobOptionsHtml}
+                </select>
+            </div>
+            <div class="w-24">
+                <input type="number" min="1" value="${quantity}" onchange="calculateModalTotals()" onkeyup="calculateModalTotals()" class="item-qty w-full bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg p-2 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="จำนวน" required>
+            </div>
+            <button type="button" onclick="removeTaskRow('${rowId}')" class="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        `;
+
+            container.appendChild(rowElement);
+            calculateModalTotals();
+        }
+
+        function removeTaskRow(rowId) {
+            const container = document.getElementById('taskItemsContainer');
+            if (!container) return;
+
+            if (container.children.length <= 1) {
+                showToast('ต้องมีอย่างน้อย 1 รายการภาระงาน', 'error');
+                return;
+            }
+            const el = document.getElementById(rowId);
+            if (el) el.remove();
+            calculateModalTotals();
+        }
+
+        function calculateModalTotals() {
+            const rows = document.querySelectorAll('#taskItemsContainer > div');
+            let totalItems = rows.length;
+            let totalQty = 0;
+            let totalScore = 0;
+
+            rows.forEach(r => {
+                const select = r.querySelector('.item-job-type');
+                const qtyInput = r.querySelector('.item-qty');
+                const qty = parseFloat(qtyInput?.value) || 0;
+                const selectedOption = select?.options[select.selectedIndex];
+                const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
+
+                totalQty += qty;
+                totalScore += (qty * scorePerUnit);
+            });
+
+            const itemsEl = document.getElementById('modalTotalItems');
+            const qtyEl = document.getElementById('modalTotalQty');
+            const scoreEl = document.getElementById('modalTotalScore');
+
+            if (itemsEl) itemsEl.innerText = totalItems;
+            if (qtyEl) qtyEl.innerText = totalQty.toLocaleString('th-TH');
+            if (scoreEl) scoreEl.innerText = totalScore.toLocaleString('th-TH');
+        }
+
+
+        function editTask(id) {
+            const task = globalTasks.find(t => Number(t.id) === Number(id));
+            if (!task) return;
+
+            const modalTitle = document.getElementById('modalTitle');
+            const formRowId = document.getElementById('formRowId');
+            const taskRecorder = document.getElementById('taskRecorder');
+            const taskNote = document.getElementById('taskNote');
+            const container = document.getElementById('taskItemsContainer');
+            const taskModal = document.getElementById('taskModal');
+
+            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-edit mr-2 text-emerald-300"></i> แก้ไขภาระงาน`;
+            if (formRowId) formRowId.value = task.id;
+
+            const picker = initDatePicker(); // เรียกใช้อินสแตนซ์ของ DatePicker
+
+            if (task.date) {
+                const parts = task.date.includes('-') ? task.date.split('-') : task.date.split('/');
+
+                let formattedDate = task.date;
+                if (parts.length === 3) {
+                    if (parts[0].length === 4) {
+                        formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                    } else {
+                        formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    }
+                }
+
+                if (picker) {
+                    picker.setDate(formattedDate, true);
+                } else {
+                    const taskDateEl = document.getElementById('taskDate');
+                    if (taskDateEl) taskDateEl.value = formatDateToDMY(task.date);
+                }
+            }
+
+            if (taskRecorder) taskRecorder.value = task.recorder;
+            if (taskNote) taskNote.value = task.note || '';
+
+            if (container) container.innerHTML = '';
+            rowCounter = 0;
+
+            const rawJobs = task.jobType ? task.jobType.split(',') : [''];
+            const totalJobs = rawJobs.length;
+            const totalQty = parseFloat(task.quantity) || 0;
+
+            const qtyPerItem = totalJobs > 0 ? Math.floor(totalQty / totalJobs) : 0;
+            const remainder = totalJobs > 0 ? (totalQty % totalJobs) : 0;
+
+            rawJobs.forEach((job, index) => {
+                const currentQty = (index === 0) ? (qtyPerItem + remainder) : qtyPerItem;
+                addTaskRow(job.trim(), currentQty || 1);
+            });
+
+            if (taskModal) taskModal.classList.remove('hidden');
+
+            setTimeout(() => {
+                calculateModalTotals();
+            }, 50);
+        }
+
+
+        function renderMonthlySummary() {
+            const tbody = document.getElementById('summaryTableBody');
+            if (!tbody) return;
+
+            const summaryEmp = document.getElementById('summaryFilterEmployee')?.value || 'ALL';
+            const summaryMonth = document.getElementById('summaryFilterMonth')?.value || '';
+
+            // กรองข้อมูลภาระงาน
+            const filtered = globalTasks.filter(t => {
+                if (!t.date) return false;
+
+                let taskMonth = '';
+                const parts = t.date.includes('-') ? t.date.split('-') : t.date.split('/');
+                if (parts.length === 3) {
+                    taskMonth = parts[0].length === 4 ? `${parts[0]}-${parts[1]}` : `${parts[2]}-${parts[1]}`;
+                }
+
+                const matchEmp = (summaryEmp === 'ALL') || (t.recorder === summaryEmp);
+                const matchMonth = (!summaryMonth) || (taskMonth === summaryMonth);
+
+                return matchEmp && matchMonth;
+            });
+
+            let totalTasks = filtered.length;
+            let totalQty = filtered.reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+            let totalScore = filtered.reduce((sum, t) => sum + (parseFloat(t.score) || 0), 0);
+
+            const tasksEl = document.getElementById('summaryTotalTasks');
+            const qtyEl = document.getElementById('summaryTotalQty');
+            const scoreEl = document.getElementById('summaryTotalScore');
+
+            if (tasksEl) tasksEl.innerText = totalTasks.toLocaleString('th-TH');
+            if (qtyEl) qtyEl.innerText = totalQty.toLocaleString('th-TH');
+            if (scoreEl) scoreEl.innerText = totalScore.toLocaleString('th-TH');
+
+            const grouped = {};
+            filtered.forEach(t => {
+                let month = 'ไม่ระบุ';
+                if (t.date) {
+                    const parts = t.date.includes('-') ? t.date.split('-') : t.date.split('/');
+                    if (parts.length === 3) {
+                        month = parts[0].length === 4 ? `${parts[1]}/${parts[0]}` : `${parts[1]}/${parts[2]}`;
+                    }
+                }
+
+                const emp = t.recorder || 'ไม่ระบุ';
+                const key = `${month}_${emp}`;
+
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        month: month,
+                        employee: emp,
+                        taskCount: 0,
+                        totalQty: 0,
+                        totalScore: 0
+                    };
+                }
+                grouped[key].taskCount += 1;
+                grouped[key].totalQty += (parseFloat(t.quantity) || 0);
+                grouped[key].totalScore += (parseFloat(t.score) || 0);
+            });
+
+            const summaryList = Object.values(grouped).sort((a, b) => b.month.localeCompare(a.month));
+
+            if (summaryList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลสรุปตามเงื่อนไขที่เลือก</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = summaryList.map(s => `
+        <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3.5 font-medium text-slate-700">${s.month}</td>
+            <td class="px-4 py-3.5 font-semibold text-slate-800">${s.employee}</td>
+            <td class="px-4 py-3.5 text-center text-slate-700">${s.taskCount.toLocaleString('th-TH')}</td>
+            <td class="px-4 py-3.5 text-center text-slate-700">${s.totalQty.toLocaleString('th-TH')}</td>
+            <td class="px-4 py-3.5 text-center font-bold text-emerald-600">${s.totalScore.toLocaleString('th-TH')}</td>
+        </tr>
+    `).join('');
+        }
+
+        function resetSummaryFilters() {
+            const empEl = document.getElementById('summaryFilterEmployee');
+            if (empEl) empEl.value = 'ALL';
+
+            if (summaryMonthPickerInstance) {
+                summaryMonthPickerInstance.clear();
+            } else {
+                const monthEl = document.getElementById('summaryFilterMonth');
+                if (monthEl) monthEl.value = '';
+            }
+
+            renderMonthlySummary();
+            clearSummaryMonthFilter();
+        }
+
+
+        function clearSummaryMonthFilter(e) {
+            if (e) e.stopPropagation();
+
+            if (summaryMonthPickerInstance) {
+                summaryMonthPickerInstance.clear();
+            } else {
+                const inputEl = document.getElementById('summaryFilterMonth');
+                if (inputEl) inputEl.value = '';
+            }
+
+            renderMonthlySummary();
+        }
+
+
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            if (!toast || !toastMsg || !toastIcon) return;
+
+            toastMsg.innerText = msg;
+
+            if (type === 'error') {
+                toastIcon.className = 'fas fa-exclamation-circle text-rose-400 text-lg';
+            } else if (type === 'success') {
+                toastIcon.className = 'fas fa-check-circle text-emerald-400 text-lg';
+            } else {
+                toastIcon.className = 'fas fa-info-circle text-sky-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>

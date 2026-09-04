@@ -1,0 +1,79 @@
+<!-- TAB 2: MONTHLY SUMMARY -->
+<div id="tabSummary" class="space-y-6">
+
+    <!-- สรุปยอดรวม -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                <i class="fas fa-list-check text-xl"></i>
+            </div>
+            <div>
+                <p class="text-xs sm:text-sm text-slate-500 font-medium">จำนวนรายการงาน</p>
+                <h3 id="summaryTotalTasks" class="text-xl font-bold text-slate-800">0</h3>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <i class="fas fa-cubes text-xl"></i>
+            </div>
+            <div>
+                <p class="text-xs sm:text-sm text-slate-500 font-medium">จำนวนชิ้นงานรวม</p>
+                <h3 id="summaryTotalQty" class="text-xl font-bold text-slate-800">0</h3>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center space-x-4">
+            <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                <i class="fas fa-star text-xl"></i>
+            </div>
+            <div>
+                <p class="text-xs sm:text-sm text-slate-500 font-medium">คะแนนรวมทั้งหมด</p>
+                <h3 id="summaryTotalScore" class="text-xl font-bold text-amber-600">0</h3>
+            </div>
+        </div>
+
+<label for="summaryFilterMonth"
+    class="w-full sm:w-auto min-w-[260px] max-w-full bg-white p-3 sm:p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center space-x-3 sm:space-x-4 cursor-pointer hover:border-emerald-300 transition-colors">
+    <div class="p-2.5 sm:p-3 bg-emerald-50 text-emerald-600 rounded-xl flex-shrink-0">
+        <i class="far fa-calendar-alt text-lg sm:text-xl"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+        <span class="block text-xs sm:text-sm text-slate-500 font-medium mb-1 truncate">
+            เลือกเดือนที่ต้องการสรุป
+        </span>
+        <div class="relative flex items-center">
+            <input type="text" id="summaryFilterMonth" placeholder="ทุกเดือน (แสดงทั้งหมด)" readonly
+                class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl p-2 pr-8 focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer">
+            
+            <!-- ปุ่มกดรีเซ็ตเดือน -->
+            <button type="button" onclick="clearSummaryMonthFilter(event)" title="ล้างการเลือกเดือน"
+                class="absolute right-2 text-slate-400 hover:text-rose-500 p-1 rounded-lg transition-colors">
+                <i class="fas fa-times-circle text-sm"></i>
+            </button>
+        </div>
+    </div>
+</label>
+
+    </div>
+
+    <!-- ตารางแสดงสรุปรายเดือน -->
+    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr
+                        class="bg-emerald-50/80 text-emerald-900 text-xs sm:text-sm uppercase font-bold tracking-wider border-b border-emerald-100">
+                        <th class="px-4 py-3.5">ประจำเดือน</th>
+                        <th class="px-4 py-3.5">ผู้บันทึก / พนักงาน</th>
+                        <th class="px-4 py-3.5 text-center">จำนวนงาน (รายการ)</th>
+                        <th class="px-4 py-3.5 text-center">จำนวนชิ้นงานรวม</th>
+                        <th class="px-4 py-3.5 text-center">ผลคะแนนรวม</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
