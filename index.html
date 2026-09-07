@@ -66,7 +66,6 @@
 
 
     <header
-
         class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white shadow-lg sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
@@ -142,18 +141,18 @@
 
     <script>
 
-    (async function checkLoginStatus() {
-        try {
-            const response = await fetch('db.php?action=get_data');
-            const res = await response.json();
+        (async function checkLoginStatus() {
+            try {
+                const response = await fetch('db.php?action=get_data');
+                const res = await response.json();
 
-            if (res.auth_required) {
+                if (res.auth_required) {
+                    window.location.href = 'login.html';
+                }
+            } catch (err) {
                 window.location.href = 'login.html';
             }
-        } catch (err) {
-            window.location.href = 'login.html';
-        }
-    })();
+        })();
 
         let globalTasks = [];
         let globalEmployees = [];
@@ -512,6 +511,7 @@
             const filterEmp = document.getElementById('filterEmployee');
             const summaryEmp = document.getElementById('summaryFilterEmployee');
             const taskRecorderSelect = document.getElementById('taskRecorder');
+            const summaryEmpCard = document.getElementById('summaryEmployeeFilterCard');
 
             let optionsHtml = '<option value="ALL">-- แสดงทั้งหมด --</option>';
             let recorderOptionsHtml = '<option value="">-- เลือกผู้บันทึก --</option>';
@@ -530,6 +530,14 @@
                 taskRecorderSelect.innerHTML = recorderOptionsHtml;
                 if (currentUser && currentUser.name) {
                     taskRecorderSelect.value = currentUser.name;
+                }
+            }
+
+            if (summaryEmpCard) {
+                if (currentUser && currentUser.role === 'admin') {
+                    summaryEmpCard.classList.remove('hidden');
+                } else {
+                    summaryEmpCard.classList.add('hidden');
                 }
             }
         }
@@ -934,7 +942,7 @@
                 toast.classList.add('translate-y-20', 'opacity-0');
             }, 3000);
         }
-        
+
     </script>
 </body>
 
