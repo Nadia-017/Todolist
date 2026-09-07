@@ -512,6 +512,7 @@
             const summaryEmp = document.getElementById('summaryFilterEmployee');
             const taskRecorderSelect = document.getElementById('taskRecorder');
             const summaryEmpCard = document.getElementById('summaryEmployeeFilterCard');
+            const summaryGridContainer = document.getElementById('summaryGridContainer');
 
             let optionsHtml = '<option value="ALL">-- แสดงทั้งหมด --</option>';
             let recorderOptionsHtml = '<option value="">-- เลือกผู้บันทึก --</option>';
@@ -533,11 +534,19 @@
                 }
             }
 
-            if (summaryEmpCard) {
-                if (currentUser && currentUser.role === 'admin') {
-                    summaryEmpCard.classList.remove('hidden');
-                } else {
-                    summaryEmpCard.classList.add('hidden');
+            if (currentUser && currentUser.role === 'admin') {
+                // สำหรับ Admin
+                if (summaryEmpCard) summaryEmpCard.classList.remove('hidden');
+                if (summaryGridContainer) {
+                    summaryGridContainer.classList.remove('lg:grid-cols-4');
+                    summaryGridContainer.classList.add('lg:grid-cols-5');
+                }
+            } else {
+                // สำหรับ User 
+                if (summaryEmpCard) summaryEmpCard.classList.add('hidden');
+                if (summaryGridContainer) {
+                    summaryGridContainer.classList.remove('lg:grid-cols-5');
+                    summaryGridContainer.classList.add('lg:grid-cols-4');
                 }
             }
         }
