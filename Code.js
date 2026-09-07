@@ -150,7 +150,13 @@ app.get('/api/summary', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+/*const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
+*/
+
+// ตัวอย่าง Node.js / Express
+app.use(cors({
+  origin: 'https://todolist-tmy.netlify.app'
+}));

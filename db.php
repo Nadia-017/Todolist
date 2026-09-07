@@ -1,6 +1,5 @@
 <?php
 // db.php
-// db.php
 session_start();
 
 header('Access-Control-Allow-Origin: *');
@@ -10,14 +9,15 @@ header('Content-Type: application/json; charset=utf-8');
 error_reporting(0);
 ini_set('display_errors', 0);
 
-$host     = '127.0.0.1';
-$port     = 3307; 
-$dbname   = 'todolist';
-$username = 'root';       
-$password = ''; 
+// ดึงค่าจาก Environment Variable (หากไม่มีให้ใช้ค่า Default ด้านหลัง)
+$host     = getenv('DB_HOST')     ?: '127.0.0.1';
+$port     = getenv('DB_PORT')     ?: '3307'; 
+$dbname   = getenv('DB_NAME')     ?: 'todolist';
+$username = getenv('DB_USER')     ?: 'root';       
+$password = getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : ''; 
 $charset  = 'utf8mb4';
 
-// เพิ่ม port=$port ใน DSN string
+// สร้าง DSN สำหรับ PDO
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -34,6 +34,8 @@ try {
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+// ... โค้ดส่วนจัดการ LOGIN / GET DATA / SAVE TASK ด้านล่างเหมือนเดิม ...
 
 $action = $_GET['action'] ?? '';
 
