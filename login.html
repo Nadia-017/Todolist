@@ -64,42 +64,41 @@
         </form>
     </div>
 
-<script>
-    async function handleLogin(e) {
-        e.preventDefault();
-        const user = document.getElementById('loginUsername').value;
-        const pass = document.getElementById('loginPassword').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const submitBtn = document.getElementById('submitBtn');
+    <script>
+        async function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('loginUsername').value;
+            const pass = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const submitBtn = document.getElementById('submitBtn');
 
-        errorDiv.classList.add('hidden');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังเข้าสู่ระบบ...`;
+            errorDiv.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังเข้าสู่ระบบ...`;
 
-        try {
-            // ชี้ URL ไปที่ InfinityFree โดยตรง
-            const response = await fetch('https://TodolistTMY.infinityfreeapp.com/db.php?action=login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user, password: pass })
-            });
-            const res = await response.json();
+            try {
+                const response = await fetch('db.php?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const res = await response.json();
 
-            if (res.success) {
-                window.location.href = 'index.html';
-            } else {
-                errorDiv.innerText = res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+                if (res.success) {
+                    window.location.href = 'index.html';
+                } else {
+                    errorDiv.innerText = res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.innerText = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
                 errorDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>เข้าสู่ระบบ</span>`;
             }
-        } catch (err) {
-            errorDiv.innerText = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
-            errorDiv.classList.remove('hidden');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = `<span>เข้าสู่ระบบ</span>`;
         }
-    }
-</script>
+    </script>
 </body>
 
 </html>
