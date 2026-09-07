@@ -9,16 +9,15 @@ header('Content-Type: application/json; charset=utf-8');
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// ดึงค่าจาก Environment Variable (หากไม่มีให้ใช้ค่า Default ด้านหลัง)
-$host     = getenv('DB_HOST')     ?: '127.0.0.1';
-$port     = getenv('DB_PORT')     ?: '3307'; 
-$dbname   = getenv('DB_NAME')     ?: 'todolist';
-$username = getenv('DB_USER')     ?: 'root';       
-$password = getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : ''; 
 $charset  = 'utf8mb4';
+$host     = getenv('DB_HOST')     ?: 'sql205.infinityfree.com'; 
+$port     = getenv('DB_PORT')     ?: '3306';
+$dbname   = getenv('DB_NAME')     ?: 'if0_42851763_todolist'; 
+$username = getenv('DB_USER')     ?: 'if0_42851763';          
+$password = getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : '1Cfhfvjs5ua'; 
 
-// สร้าง DSN สำหรับ PDO
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
+
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -34,8 +33,6 @@ try {
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
-
-// ... โค้ดส่วนจัดการ LOGIN / GET DATA / SAVE TASK ด้านล่างเหมือนเดิม ...
 
 $action = $_GET['action'] ?? '';
 
