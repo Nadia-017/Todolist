@@ -102,8 +102,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_data') {
             $employees = [$currentUser];
         }
 
-        $stmtJobs = $pdo->query("SELECT TRIM(REPLACE(REPLACE(type_name, '\r', ''), '\n', '')) AS type, score FROM job_types");
-        $jobTypes = $stmtJobs->fetchAll();
+        // ดึงรายการประเภทงานทั่วไปสำรอง (ถ้ามี)
+        $jobTypes = [];
+        try {
+            $stmtJobs = $pdo->query("SELECT TRIM(REPLACE(REPLACE(type_name, '\r', ''), '\n', '')) AS type, score FROM job_types");
+            $jobTypes = $stmtJobs->fetchAll();
+        } catch (Exception $ex) {
+            $jobTypes = [];
+        }
 
         echo json_encode([
             'success' => true,
@@ -138,15 +144,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
 
             if (count($parts) === 3) {
                 if (strlen($parts[0]) === 4) {
-                    // มาในรูปแบบ YYYY-MM-DD
                     $taskDate = "{$parts[0]}-{$parts[1]}-{$parts[2]}";
                 } else {
-                    // มาในรูปแบบ DD-MM-YYYY
                     $taskDate = "{$parts[2]}-{$parts[1]}-{$parts[0]}";
                 }
             }
         }
-        // -------------------------------------------------------------
 
         $recorder = ($currentRole === 'admin') ? trim($input['recorder'] ?? $currentUser) : $currentUser;
         $note     = trim($input['note'] ?? '');
@@ -207,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
     exit;
 }
 
-// 5. GET MODAL
+// 5. GET DEPARTMENT TASKS 
 if ($action === 'get_dept_tasks') {
     $dept = $_GET['dept'] ?? '';
 
@@ -239,10 +242,19 @@ if ($action === 'get_dept_tasks') {
             $taskName = '';
             $score = 0;
 
-            foreach ($row as $key => $val) {
-                if (in_array(strtolower($key), ['type_name', 'task_name', 'name', 'title']) || strpos($key, 'name') !== false) {
-                    $taskName = $val;
-                    break;
+            // 1. ตรวจหาชื่อรายการ
+            if (isset($row['type_name'])) {
+                $taskName = $row['type_name'];
+            } elseif (isset($row['task_name'])) {
+                $taskName = $row['task_name'];
+            } elseif (isset($row['name'])) {
+                $taskName = $row['name'];
+            } else {
+                foreach ($row as $key => $val) {
+                    if (strpos(strtolower($key), 'name') !== false || strpos(strtolower($key), 'title') !== false) {
+                        $taskName = $val;
+                        break;
+                    }
                 }
             }
 
@@ -251,16 +263,21 @@ if ($action === 'get_dept_tasks') {
                 $taskName = $values[1] ?? reset($row);
             }
 
-            foreach ($row as $key => $val) {
-                if (strpos(strtolower($key), 'score') !== false || strpos(strtolower($key), 'point') !== false) {
-                    $score = $val;
-                    break;
+            // 2. ตรวจหาคะแนน (score)
+            if (isset($row['score'])) {
+                $score = floatval($row['score']);
+            } else {
+                foreach ($row as $key => $val) {
+                    if (strpos(strtolower($key), 'score') !== false || strpos(strtolower($key), 'point') !== false) {
+                        $score = floatval($val);
+                        break;
+                    }
                 }
             }
 
             $tasks[] = [
-                'id' => $row['id'] ?? 1,
-                'task_name' => $taskName,
+                'id' => $row['id'] ?? null,
+                'task_name' => trim($taskName),
                 'score' => $score
             ];
         }
@@ -271,5 +288,4 @@ if ($action === 'get_dept_tasks') {
     }
     exit;
 }
-
 ?>

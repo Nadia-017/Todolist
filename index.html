@@ -225,7 +225,7 @@
 
                     const userDisplay = document.getElementById('currentUserDisplay');
                     if (userDisplay && currentUser) {
-                        userDisplay.innerHTML = `<i class="fas fa-user-circle mr-1"></i> ${currentUser.name} (${currentUser.role})`;
+                        userDisplay.innerHTML = `<i class="fas fa-user-circle mr-1"></i> ${currentUser.name}`;
                     }
 
                     populateEmployeeDropdowns();
@@ -692,15 +692,7 @@
             const rowId = document.getElementById('formRowId')?.value || '';
             const dateInput = document.getElementById('taskDate')?.value || '';
             const recorder = document.getElementById('taskRecorder')?.value || '';
-            let note = document.getElementById('taskNote')?.value || '';
-
-            const selectedDept = document.getElementById('departmentSelect')?.value;
-            const selectedDeptTask = document.getElementById('deptTaskSelect')?.value;
-
-            if (selectedDept && selectedDeptTask) {
-                const deptNoteStr = `[แผนก: ${selectedDept}] ${selectedDeptTask}`;
-                note = note ? `${deptNoteStr} | ${note}` : deptNoteStr;
-            }
+            const note = document.getElementById('taskNote')?.value || '';
 
             let date = dateInput;
             if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
@@ -711,12 +703,13 @@
                 date = `${year}-${month}-${day}`;
             }
 
-            const rows = document.querySelectorAll('#taskItemsContainer > div');
             const items = [];
 
-            rows.forEach(r => {
-                const select = r.querySelector('.item-job-type');
-                const qtyInput = r.querySelector('.item-qty');
+            // 1. ดึงข้อมูลจากส่วน "รายละเอียดงานตามแผนก" (deptTaskItemsContainer)
+            const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
+            deptRows.forEach(r => {
+                const select = r.querySelector('.dept-task-select');
+                const qtyInput = r.querySelector('.dept-task-qty');
 
                 if (select && qtyInput) {
                     const jobType = select.value;
@@ -734,8 +727,31 @@
                 }
             });
 
+            // 2. ดึงข้อมูลจากส่วน "รายการงานทั่วไป" (ถ้ามี)
+            const taskRows = document.querySelectorAll('#taskItemsContainer > div');
+            taskRows.forEach(r => {
+                const select = r.querySelector('.item-job-type, .task-select, select');
+                const qtyInput = r.querySelector('.item-qty, .task-qty, input[type="number"]');
+
+                if (select && qtyInput) {
+                    const jobType = select.value;
+                    const qty = parseFloat(qtyInput.value) || 0;
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
+
+                    if (jobType && qty > 0) {
+                        items.push({
+                            jobType: jobType,
+                            quantity: qty,
+                            score: qty * scorePerUnit
+                        });
+                    }
+                }
+            });
+
+            // ตรวจสอบว่ามีรายการอย่างน้อย 1 รายการ
             if (items.length === 0) {
-                showToast('กรุณาระบุข้อมูลประเภทงานและจำนวนอย่างน้อย 1 รายการ', 'error');
+                showToast('กรุณาเลือกรายการงานและระบุจำนวนอย่างน้อย 1 รายการ', 'error');
                 return;
             }
 
@@ -757,7 +773,13 @@
                 if (res && res.success) {
                     showToast(res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
                     closeTaskModal();
-                    loadDataFromBackend();
+
+                    // ดึงข้อมูลใหม่จาก Backend
+                    await loadDataFromBackend();
+
+                    // สลับกลับมาที่หน้าตารางรายการงาน และ Render ข้อมูลใหม่
+                    switchMainTab('tasks');
+                    filterAndRenderTasks();
                 } else {
                     showToast(res?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
                 }
@@ -766,7 +788,7 @@
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> บันทึกข้อมูลทั้งหมด`;
+                    submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> <span>บันทึกข้อมูลทั้งหมด</span>`;
                 }
             }
         }

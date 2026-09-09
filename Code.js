@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2/promise'); // ใช้ mysql2 แบบ promise
+const mysql = require('mysql2/promise'); 
 const path = require('path');
 
 const app = express();
@@ -135,7 +135,6 @@ app.post('/api/save-task', async (req, res) => {
 });
 
 // 3. รายงานสรุปรายเดือน
-// 3. รายงานสรุปรายเดือน (ดึงข้อมูลตรงจากตาราง summary)
 app.get('/api/summary', async (req, res) => {
   try {
     // ดึงข้อมูลทั้งหมดจากตาราง summary
@@ -150,13 +149,53 @@ app.get('/api/summary', async (req, res) => {
   }
 });
 
+
+// 4. ดึงข้อมูลรายการงาน พนักงาน และประเภทงาน (แยกตามแผนก)
+app.get('/api/sheet-data', async (req, res) => {
+  try {
+    // ดึงงานจากตาราง tasks
+    const [rows] = await pool.query(`
+      SELECT 
+        id, 
+        DATE_FORMAT(task_date, '%d-%m-%Y') AS date, 
+        recorder_name AS recorder, 
+        job_type AS jobType, 
+        quantity, 
+        score, 
+        note 
+      FROM tasks 
+      ORDER BY id DESC
+    `);
+
+    // ดึงรายชื่อจากตาราง employees
+    const [employeesRows] = await pool.query('SELECT name FROM employees ORDER BY name ASC');
+
+    let employees = employeesRows
+      .filter(e => e.name)
+      .map(e => e.name.trim());
+
+    // ดึงประเภทงานจากตาราง job_types (ดึง department เพิ่มเข้ามาด้วย)
+    const [jobTypesRows] = await pool.query('SELECT type_name AS type, score, department FROM job_types');
+
+    res.json({
+      success: true,
+      rows: rows,
+      employees: employees,
+      jobTypes: jobTypesRows
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 /*const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
 */
 
-// ตัวอย่าง Node.js / Express
 app.use(cors({
   origin: 'https://todolist-tmy.netlify.app'
 }));
