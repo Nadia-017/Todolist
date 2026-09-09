@@ -204,7 +204,6 @@
             }
         }
 
-
         async function loadDataFromBackend() {
             try {
                 const loadingEl = document.getElementById('loadingOverlay');
@@ -252,91 +251,6 @@
                 window.location.href = 'login.html';
             } catch (err) {
                 window.location.href = 'login.html';
-            }
-        }
-
-        async function submitTaskForm(e) {
-            e.preventDefault();
-
-            const rowId = document.getElementById('formRowId')?.value || '';
-            const dateInput = document.getElementById('taskDate')?.value || '';
-            const recorder = document.getElementById('taskRecorder')?.value || '';
-            const note = document.getElementById('taskNote')?.value || '';
-
-            let date = dateInput;
-            if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
-                const d = datePickerInstance.selectedDates[0];
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                date = `${year}-${month}-${day}`;
-            }
-
-            const rows = document.querySelectorAll('#taskItemsContainer > div');
-            const items = [];
-
-            rows.forEach(r => {
-                const select = r.querySelector('.item-job-type');
-                const qtyInput = r.querySelector('.item-qty');
-
-                if (select && qtyInput) {
-                    const jobType = select.value;
-                    const qty = parseFloat(qtyInput.value) || 0;
-                    const selectedOption = select.options[select.selectedIndex];
-                    const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
-
-                    if (jobType && qty > 0) {
-                        items.push({
-                            jobType: jobType,
-                            quantity: qty,
-                            score: qty * scorePerUnit
-                        });
-                    }
-                }
-            });
-
-            if (items.length === 0) {
-                showToast('กรุณาระบุข้อมูลประเภทงานและจำนวนอย่างน้อย 1 รายการ', 'error');
-                return;
-            }
-
-            const submitBtn = document.getElementById('submitBtn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...`;
-            }
-
-            const payload = {
-                rowId: rowId,
-                date: date,
-                recorder: recorder,
-                note: note,
-                items: items
-            };
-
-            try {
-                const response = await fetch('db.php?action=save_task', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const res = await response.json();
-
-                if (res && res.success) {
-                    showToast(res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                    closeTaskModal();
-                    loadDataFromBackend();
-                } else {
-                    showToast(res?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
-                }
-            } catch (err) {
-                showToast('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message, 'error');
-            } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> บันทึกข้อมูลทั้งหมด`;
-                }
             }
         }
 
@@ -441,42 +355,6 @@
             renderCardItems(filtered);
         }
 
-        /* function resetFilters() {
-             const filterDateEl = document.getElementById('filterDate');
-             const filterEmpEl = document.getElementById('filterEmployee');
-             const filterJobEl = document.getElementById('filterJobType');
-             const searchInputEl = document.getElementById('searchInput');
- 
-             if (filterDateEl) filterDateEl.value = '';
-             if (filterEmpEl) filterEmpEl.value = 'ALL';
-             if (filterJobEl) filterJobEl.value = 'ALL';
-             if (searchInputEl) searchInputEl.value = '';
-             filterAndRenderTasks();
-         }  */
-
-        /* function switchViewMode(mode) {
-             currentViewMode = mode;
-             const tableView = document.getElementById('tableViewContainer');
-             const cardView = document.getElementById('cardViewContainer');
-            // const viewTableBtn = document.getElementById('viewTableBtn');
-            // const viewCardBtn = document.getElementById('viewCardBtn');
- 
-             if (mode === 'table') {
-                 tableView?.classList.remove('hidden');
-                 cardView?.classList.add('hidden');
-               //  viewTableBtn?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
-               //  viewTableBtn?.classList.remove('text-slate-600');
-               //  viewCardBtn?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
-               //  viewCardBtn?.classList.add('text-slate-600');
-             } else {
-                 tableView?.classList.add('hidden');
-                 cardView?.classList.remove('hidden');
-                // viewCardBtn?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
-               //  viewCardBtn?.classList.remove('text-slate-600');
-               //  viewTableBtn?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
-               //  viewTableBtn?.classList.add('text-slate-600');
-             }
-         } */
 
         // อัปเดตฟังก์ชัน switchMainTab
         function switchMainTab(tab) {
@@ -609,60 +487,190 @@
         }
 
 
-        function openTaskModal() {
-            const modalTitle = document.getElementById('modalTitle');
-            const formRowId = document.getElementById('formRowId');
-            const taskForm = document.getElementById('taskForm');
-            const taskModal = document.getElementById('taskModal');
 
-            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-plus-circle mr-2 text-emerald-300"></i> บันทึกภาระงานใหม่`;
-            if (formRowId) formRowId.value = '';
-            if (taskForm) taskForm.reset();
+        // ฟังก์ชันสำหรับสลับหน้าฟอร์มแผนก
+        function toggleDepartmentForm() {
+            const selectedDept = document.getElementById('departmentSelect').value;
+            const allForms = document.querySelectorAll('.dept-form');
 
-            // เรียกใช้ DatePicker
-            const picker = initDatePicker();
+            allForms.forEach(form => form.classList.add('hidden'));
 
-            // สร้างวันที่ปัจจุบัน
-            const today = new Date();
-
-            if (picker) {
-                picker.setDate(today);
-            } else {
-                const taskDate = document.getElementById('taskDate');
-                if (taskDate) {
-                    const day = String(today.getDate()).padStart(2, '0');
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
-                    const year = today.getFullYear();
-                    taskDate.value = `${day}/${month}/${year}`;
+            if (selectedDept) {
+                const activeForm = document.getElementById(`form-${selectedDept}`);
+                if (activeForm) {
+                    activeForm.classList.remove('hidden');
+                    const container = document.getElementById(`container-${selectedDept}`);
+                    if (container && container.children.length === 0) {
+                        addDeptTaskRow(selectedDept);
+                    }
                 }
             }
-
-            const container = document.getElementById('taskItemsContainer');
-            if (container) container.innerHTML = '';
-            rowCounter = 0;
-
-            addTaskRow();
-            if (taskModal) taskModal.classList.remove('hidden');
         }
 
+        // ฟังก์ชันเพิ่มรายการย่อยในแผนก
+        function addDeptTaskRow(deptKey) {
+            const container = document.getElementById(`container-${deptKey}`);
+            if (!container) return;
+
+            const rowId = `dept-row-${Date.now()}`;
+
+            // กำหนด Placeholder ให้ตรงตามแผนก
+            const placeholders = {
+                finance: 'ระบุรายการรับ-จ่าย/จำนวนเงิน',
+                loan: 'ระบุเลขที่สัญญา/รายละเอียดสินเชื่อ',
+                debt_collection: 'ระบุรายละเอียดการติดตามหนี้',
+                accounting: 'ระบุหมวดหมู่บัญชี/เลขที่ใบเสร็จ',
+                it: 'ระบุระบบ/อุปกรณ์ที่ดำเนินการแก้ไข',
+                administrative: 'ระบุรายละเอียดงานสารบรรณ/พัสดุ',
+                hr: 'ระบุเรื่องที่ดำเนินการ (ลา/สวัสดิการ/OT)',
+                community: 'ระบุชื่อชุมชน/โครงการ'
+            };
+
+            const placeholderText = placeholders[deptKey] || 'ระบุรายละเอียด';
+
+            const rowHTML = `
+        <div id="${rowId}" class="flex items-center space-x-2">
+            <input type="text" name="dept_detail_${deptKey}[]" required placeholder="${placeholderText}"
+                class="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <button type="button" onclick="removeDeptTaskRow('${rowId}')"
+                class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 flex items-center justify-center transition-colors flex-shrink-0">
+                <i class="fas fa-trash-alt text-xs"></i>
+            </button>
+        </div>
+    `;
+
+            container.insertAdjacentHTML('beforeend', rowHTML);
+        }
+
+
+        function handleDepartmentChange(deptValue) {
+            // ซ่อนฟอร์มแผนกทั้งหมดก่อน
+            document.querySelectorAll('.dept-form').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            // แสดงฟอร์มแผนกที่เลือก
+            if (deptValue) {
+                const targetForm = document.getElementById(`dept-${deptValue}`);
+                if (targetForm) {
+                    targetForm.classList.remove('hidden');
+                }
+            }
+        }
+
+
+        // ฟังก์ชันลบรายการย่อย
+        function removeDeptTaskRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+            }
+        }
+
+
+        let currentDeptTasks = [];
+
+        //  ดึงรายการงานตามแผนก
+        async function loadDepartmentTasks(deptKey) {
+            const wrapper = document.getElementById('deptTaskWrapper');
+            const container = document.getElementById('deptTaskItemsContainer');
+
+            if (!wrapper || !container) return;
+
+            if (!deptKey) {
+                wrapper.classList.add('hidden');
+                container.innerHTML = '';
+                currentDeptTasks = [];
+                return;
+            }
+
+            try {
+                const res = await fetch(`db.php?action=get_dept_tasks&dept=${deptKey}`);
+                const result = await res.json();
+
+                if (result.success) {
+                    currentDeptTasks = result.data;
+                    wrapper.classList.remove('hidden');
+                    container.innerHTML = '';
+                    addDeptTaskRow(); // เพิ่มแถวแรกให้อัตโนมัติ
+                } else {
+                    throw new Error(result.error || 'ดึงข้อมูลไม่สำเร็จ');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('เกิดข้อผิดพลาดในการดึงรายการงานตามแผนก');
+            }
+        }
+
+        // ฟังก์ชันเพิ่มแถวรายการงานตามแผนก
+        function addDeptTaskRow(selectedTask = '', qty = 1) {
+            const container = document.getElementById('deptTaskItemsContainer');
+            if (!container) return;
+
+            const rowId = 'dept-row-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+
+            let optionsHtml = '<option value="" disabled selected>-- เลือกรายละเอียดงาน --</option>';
+            currentDeptTasks.forEach(task => {
+                const isSelected = task.task_name === selectedTask ? 'selected' : '';
+                const scoreText = task.score ? ` (${task.score} คะแนน)` : '';
+                optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${task.task_name}${scoreText}</option>`;
+            });
+
+            const rowHtml = `
+        <div id="${rowId}" class="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+            <div class="flex-1 relative">
+                <select class="dept-task-select w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-emerald-500 focus:outline-none appearance-none cursor-pointer" onchange="calculateModalTotals()">
+                    ${optionsHtml}
+                </select>
+                <div class="absolute right-3 top-3 text-slate-400 pointer-events-none">
+                    <i class="fas fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+            <div class="w-24">
+                <input type="number" min="1" value="${qty}" placeholder="จำนวน" oninput="calculateModalTotals()"
+                    class="dept-task-qty w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <button type="button" onclick="removeDeptTaskRow('${rowId}')"
+                class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors flex-shrink-0">
+                <i class="fas fa-trash-alt text-sm"></i>
+            </button>
+        </div>
+    `;
+
+            container.insertAdjacentHTML('beforeend', rowHtml);
+            calculateModalTotals();
+        }
+
+        // ฟังก์ชันลบแถว
+        function removeDeptTaskRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+                calculateModalTotals();
+            }
+        }
+
+        // เคลียร์ค่าแผนกตอนเปิด Modal
         function openTaskModal() {
             const modalTitle = document.getElementById('modalTitle');
             const formRowId = document.getElementById('formRowId');
             const taskForm = document.getElementById('taskForm');
             const taskModal = document.getElementById('taskModal');
+            const deptSelect = document.getElementById('departmentSelect');
+            const wrapper = document.getElementById('deptTaskWrapper');
 
-            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-plus-circle mr-2 text-emerald-300"></i> บันทึกภาระงานใหม่`;
+            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-plus-circle mr-2 text-emerald-300"></i> บันทึกงานใหม่`;
             if (formRowId) formRowId.value = '';
             if (taskForm) taskForm.reset();
+
+            if (deptSelect) deptSelect.value = '';
+            if (wrapper) wrapper.classList.add('hidden');
 
             const picker = initDatePicker();
             const today = new Date();
 
             if (picker) {
                 picker.setDate(today);
-            } else {
-                const taskDate = document.getElementById('taskDate');
-                if (taskDate) taskDate.value = today.toISOString().split('T')[0];
             }
 
             const container = document.getElementById('taskItemsContainer');
@@ -677,6 +685,92 @@
             const taskModal = document.getElementById('taskModal');
             if (taskModal) taskModal.classList.add('hidden');
         }
+
+        async function submitTaskForm(e) {
+            e.preventDefault();
+
+            const rowId = document.getElementById('formRowId')?.value || '';
+            const dateInput = document.getElementById('taskDate')?.value || '';
+            const recorder = document.getElementById('taskRecorder')?.value || '';
+            let note = document.getElementById('taskNote')?.value || '';
+
+            const selectedDept = document.getElementById('departmentSelect')?.value;
+            const selectedDeptTask = document.getElementById('deptTaskSelect')?.value;
+
+            if (selectedDept && selectedDeptTask) {
+                const deptNoteStr = `[แผนก: ${selectedDept}] ${selectedDeptTask}`;
+                note = note ? `${deptNoteStr} | ${note}` : deptNoteStr;
+            }
+
+            let date = dateInput;
+            if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
+                const d = datePickerInstance.selectedDates[0];
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                date = `${year}-${month}-${day}`;
+            }
+
+            const rows = document.querySelectorAll('#taskItemsContainer > div');
+            const items = [];
+
+            rows.forEach(r => {
+                const select = r.querySelector('.item-job-type');
+                const qtyInput = r.querySelector('.item-qty');
+
+                if (select && qtyInput) {
+                    const jobType = select.value;
+                    const qty = parseFloat(qtyInput.value) || 0;
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
+
+                    if (jobType && qty > 0) {
+                        items.push({
+                            jobType: jobType,
+                            quantity: qty,
+                            score: qty * scorePerUnit
+                        });
+                    }
+                }
+            });
+
+            if (items.length === 0) {
+                showToast('กรุณาระบุข้อมูลประเภทงานและจำนวนอย่างน้อย 1 รายการ', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...`;
+            }
+
+            try {
+                const response = await fetch('db.php?action=save_task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rowId, date, recorder, note, items })
+                });
+
+                const res = await response.json();
+
+                if (res && res.success) {
+                    showToast(res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+                    closeTaskModal();
+                    loadDataFromBackend();
+                } else {
+                    showToast(res?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+                }
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message, 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> บันทึกข้อมูลทั้งหมด`;
+                }
+            }
+        }
+
 
         function addTaskRow(jobType = '', quantity = 1) {
             rowCounter++;
@@ -727,30 +821,61 @@
             calculateModalTotals();
         }
 
+        // ฟังก์ชันคำนวณสรุปผลทั้งหมดใน Modal
         function calculateModalTotals() {
-            const rows = document.querySelectorAll('#taskItemsContainer > div');
-            let totalItems = rows.length;
-            let totalQty = 0;
-            let totalScore = 0;
+            let totalItems = 0; // จำนวนรายการทั้งหมด
+            let totalQty = 0;   // จำนวนงานรวมทั้งหมด
+            let totalScore = 0; // คะแนนรวมทั้งหมด (จำนวนงาน x คะแนน)
 
-            rows.forEach(r => {
-                const select = r.querySelector('.item-job-type');
-                const qtyInput = r.querySelector('.item-qty');
-                const qty = parseFloat(qtyInput?.value) || 0;
-                const selectedOption = select?.options[select.selectedIndex];
-                const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
+            // 1. คำนวณจากรายการงานตามแผนก (deptTaskItemsContainer)
+            const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
+            deptRows.forEach(row => {
+                const select = row.querySelector('.dept-task-select');
+                const qtyInput = row.querySelector('.dept-task-qty');
 
-                totalQty += qty;
-                totalScore += (qty * scorePerUnit);
+                if (select && select.value) {
+                    totalItems += 1;
+
+                    // ดึงจำนวนงาน
+                    const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+                    totalQty += qty;
+
+                    // ดึงคะแนนจาก attribute data-score ของ option ที่เลือก
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerItem = parseFloat(selectedOption.getAttribute('data-score') || 0);
+
+                    // คำนวณ: จำนวนงาน * คะแนน
+                    totalScore += (qty * scorePerItem);
+                }
             });
 
-            const itemsEl = document.getElementById('modalTotalItems');
-            const qtyEl = document.getElementById('modalTotalQty');
-            const scoreEl = document.getElementById('modalTotalScore');
+            // 2. คำนวณจากรายการงานทั่วไป (taskItemsContainer) 
+            const taskRows = document.querySelectorAll('#taskItemsContainer > div');
+            taskRows.forEach(row => {
+                const select = row.querySelector('.task-select, select');
+                const qtyInput = row.querySelector('.task-qty, input[type="number"]');
 
-            if (itemsEl) itemsEl.innerText = totalItems;
-            if (qtyEl) qtyEl.innerText = totalQty.toLocaleString('th-TH');
-            if (scoreEl) scoreEl.innerText = totalScore.toLocaleString('th-TH');
+                if (select && select.value) {
+                    totalItems += 1;
+
+                    const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+                    totalQty += qty;
+
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerItem = parseFloat(selectedOption.getAttribute('data-score') || 0);
+
+                    totalScore += (qty * scorePerItem);
+                }
+            });
+
+            // 3. แสดงผลไปยัง Elements สรุปผลด้านล่าง
+            const totalItemsEl = document.getElementById('modalTotalItems');
+            const totalQtyEl = document.getElementById('modalTotalQty');
+            const totalScoreEl = document.getElementById('modalTotalScore');
+
+            if (totalItemsEl) totalItemsEl.textContent = totalItems;
+            if (totalQtyEl) totalQtyEl.textContent = totalQty;
+            if (totalScoreEl) totalScoreEl.textContent = totalScore.toLocaleString();
         }
 
 
@@ -768,7 +893,7 @@
             if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-edit mr-2 text-emerald-300"></i> แก้ไขภาระงาน`;
             if (formRowId) formRowId.value = task.id;
 
-            const picker = initDatePicker(); // เรียกใช้อินสแตนซ์ของ DatePicker
+            const picker = initDatePicker();
 
             if (task.date) {
                 const parts = task.date.includes('-') ? task.date.split('-') : task.date.split('/');

@@ -206,4 +206,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
     }
     exit;
 }
+
+// 5. GET MODAL
+if ($action === 'get_dept_tasks') {
+    $dept = $_GET['dept'] ?? '';
+
+    $table_map = [
+        'finance'         => 'finance_types',
+        'loan'            => 'loan_types',
+        'debt_collection' => 'debt_types',
+        'accounting'      => 'accounting_types',
+        'it'              => 'it_types',
+        'administrative'  => 'administrative_types',
+        'hr'              => 'hr_types',
+        'community'       => 'community_types'
+    ];
+
+    if (!isset($table_map[$dept])) {
+        echo json_encode(['success' => false, 'error' => 'ไม่พบแผนกที่ระบุ'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $table_name = $table_map[$dept];
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM {$table_name}");
+        $stmt->execute();
+        $rawTasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $tasks = [];
+        foreach ($rawTasks as $row) {
+            $taskName = '';
+            $score = 0;
+
+            foreach ($row as $key => $val) {
+                if (in_array(strtolower($key), ['type_name', 'task_name', 'name', 'title']) || strpos($key, 'name') !== false) {
+                    $taskName = $val;
+                    break;
+                }
+            }
+
+            if (empty($taskName)) {
+                $values = array_values($row);
+                $taskName = $values[1] ?? reset($row);
+            }
+
+            foreach ($row as $key => $val) {
+                if (strpos(strtolower($key), 'score') !== false || strpos(strtolower($key), 'point') !== false) {
+                    $score = $val;
+                    break;
+                }
+            }
+
+            $tasks[] = [
+                'id' => $row['id'] ?? 1,
+                'task_name' => $taskName,
+                'score' => $score
+            ];
+        }
+
+        echo json_encode(['success' => true, 'data' => $tasks], JSON_UNESCAPED_UNICODE);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 ?>
