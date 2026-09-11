@@ -108,14 +108,12 @@
         </div>
     </header>
 
-
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-16 text-emerald-700 space-y-3">
             <i class="fas fa-circle-notch fa-spin text-4xl"></i>
             <p class="text-sm font-medium animate-pulse">กำลังโหลดข้อมูลจากระบบ...</p>
         </div>
-
         <div id="taskListContainer"></div>
         <div id="summaryContainer" class="hidden"></div>
         <div id="modalContainer"></div>
@@ -244,7 +242,6 @@
                 window.location.href = 'login.html';
             }
         }
-
 
         function formatDateToDMY(dateStr) {
             if (!dateStr) return '-';
@@ -379,10 +376,8 @@
             const filterEmp = document.getElementById('filterEmployee');
             const summaryEmp = document.getElementById('summaryFilterEmployee');
             const taskRecorderSelect = document.getElementById('taskRecorder');
-
             const filterEmpCard = document.getElementById('filterEmployeeCard');
             const filterGridContainer = document.getElementById('filterGridContainer');
-
             const summaryEmpCard = document.getElementById('summaryEmployeeFilterCard');
             const summaryGridContainer = document.getElementById('summaryGridContainer');
 
@@ -493,8 +488,6 @@
             }
         }
 
-
-
         // ฟังก์ชันสำหรับสลับหน้าฟอร์มแผนก
         function toggleDepartmentForm() {
             const selectedDept = document.getElementById('departmentSelect').value;
@@ -545,7 +538,6 @@
             </button>
         </div>
     `;
-
             container.insertAdjacentHTML('beforeend', rowHTML);
         }
 
@@ -565,7 +557,6 @@
             }
         }
 
-
         // ฟังก์ชันลบรายการย่อย
         function removeDeptTaskRow(rowId) {
             const row = document.getElementById(rowId);
@@ -573,7 +564,6 @@
                 row.remove();
             }
         }
-
 
         let currentDeptTasks = [];
 
@@ -590,7 +580,6 @@
                 currentDeptTasks = [];
                 return;
             }
-
             try {
                 const res = await fetch(`db.php?action=get_dept_tasks&dept=${deptKey}`);
                 const result = await res.json();
@@ -620,7 +609,7 @@
             currentDeptTasks.forEach(task => {
                 const isSelected = task.task_name === selectedTask ? 'selected' : '';
                 const scoreText = task.score ? ` (${task.score} คะแนน)` : '';
-                optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${task.task_name}${scoreText}</option>`;
+                optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${task.task_name}</option>`;
             });
 
             const rowHtml = `
@@ -669,7 +658,6 @@
             if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-plus-circle mr-2 text-emerald-300"></i> บันทึกงานใหม่`;
             if (formRowId) formRowId.value = '';
             if (taskForm) taskForm.reset();
-
             if (deptSelect) deptSelect.value = '';
             if (wrapper) wrapper.classList.add('hidden');
 
@@ -695,10 +683,9 @@
 
         async function submitTaskForm(e) {
             e.preventDefault();
-
+            const recorder = document.getElementById('taskRecorder')?.value || '';
             const rowId = document.getElementById('formRowId')?.value || '';
             const dateInput = document.getElementById('taskDate')?.value || '';
-            const recorder = document.getElementById('taskRecorder')?.value || '';
             const note = document.getElementById('taskNote')?.value || '';
 
             let date = dateInput;
@@ -712,7 +699,7 @@
 
             const items = [];
 
-            // 1. ดึงข้อมูลจากส่วน "รายละเอียดงานตามแผนก" (deptTaskItemsContainer)
+            // 1. ดึงข้อมูลจากส่วน "รายละเอียดงานตามแผนก"
             const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
             deptRows.forEach(r => {
                 const select = r.querySelector('.dept-task-select');
@@ -734,7 +721,7 @@
                 }
             });
 
-            // 2. ดึงข้อมูลจากส่วน "รายการงานทั่วไป" (ถ้ามี)
+            // 2. ดึงข้อมูลจากส่วน "รายการงานทั่วไป"
             const taskRows = document.querySelectorAll('#taskItemsContainer > div');
             taskRows.forEach(r => {
                 const select = r.querySelector('.item-job-type, .task-select, select');
@@ -756,7 +743,6 @@
                 }
             });
 
-            // ตรวจสอบว่ามีรายการอย่างน้อย 1 รายการ
             if (items.length === 0) {
                 showToast('กรุณาเลือกรายการงานและระบุจำนวนอย่างน้อย 1 รายการ', 'error');
                 return;
@@ -780,11 +766,7 @@
                 if (res && res.success) {
                     showToast(res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
                     closeTaskModal();
-
-                    // ดึงข้อมูลใหม่จาก Backend
                     await loadDataFromBackend();
-
-                    // สลับกลับมาที่หน้าตารางรายการงาน และ Render ข้อมูลใหม่
                     switchMainTab('tasks');
                     filterAndRenderTasks();
                 } else {
@@ -865,11 +847,8 @@
                 if (select && select.value) {
                     totalItems += 1;
 
-                    // ดึงจำนวนงาน
                     const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
                     totalQty += qty;
-
-                    // ดึงคะแนนจาก attribute data-score ของ option ที่เลือก
                     const selectedOption = select.options[select.selectedIndex];
                     const scorePerItem = parseFloat(selectedOption.getAttribute('data-score') || 0);
 
@@ -908,7 +887,8 @@
         }
 
 
-        function editTask(id) {
+
+        async function editTask(id) {
             const task = globalTasks.find(t => Number(t.id) === Number(id));
             if (!task) return;
 
@@ -916,51 +896,126 @@
             const formRowId = document.getElementById('formRowId');
             const taskRecorder = document.getElementById('taskRecorder');
             const taskNote = document.getElementById('taskNote');
-            const container = document.getElementById('taskItemsContainer');
+            const deptSelect = document.getElementById('departmentSelect');
+            const wrapper = document.getElementById('deptTaskWrapper');
             const taskModal = document.getElementById('taskModal');
 
-            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-edit mr-2 text-emerald-300"></i> แก้ไขภาระงาน`;
+            if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-edit mr-2 text-emerald-300"></i> แก้ไขงาน`;
             if (formRowId) formRowId.value = task.id;
 
+            // ตั้งค่าวันที่
             const picker = initDatePicker();
-
-            if (task.date) {
+            if (task.date && picker) {
                 const parts = task.date.includes('-') ? task.date.split('-') : task.date.split('/');
-
-                let formattedDate = task.date;
-                if (parts.length === 3) {
-                    if (parts[0].length === 4) {
-                        formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
-                    } else {
-                        formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                    }
-                }
-
-                if (picker) {
-                    picker.setDate(formattedDate, true);
-                } else {
-                    const taskDateEl = document.getElementById('taskDate');
-                    if (taskDateEl) taskDateEl.value = formatDateToDMY(task.date);
-                }
+                let formattedDate = parts.length === 3 ? (parts[0].length === 4 ? `${parts[0]}-${parts[1]}-${parts[2]}` : `${parts[2]}-${parts[1]}-${parts[0]}`) : task.date;
+                picker.setDate(formattedDate, true);
             }
 
             if (taskRecorder) taskRecorder.value = task.recorder;
             if (taskNote) taskNote.value = task.note || '';
 
+            // เคลียร์ค่าช่องรายการเดิมก่อน
+            const container = document.getElementById('deptTaskItemsContainer');
             if (container) container.innerHTML = '';
-            rowCounter = 0;
+            const generalContainer = document.getElementById('taskItemsContainer');
+            if (generalContainer) generalContainer.innerHTML = '';
 
-            const rawJobs = task.jobType ? task.jobType.split(',') : [''];
-            const totalJobs = rawJobs.length;
-            const totalQty = parseFloat(task.quantity) || 0;
+            let parsedItems = [];
+            try {
+                if (task.task_items) {
+                    parsedItems = typeof task.task_items === 'string' ? JSON.parse(task.task_items) : task.task_items;
+                }
+            } catch (e) {
+                parsedItems = [];
+            }
 
-            const qtyPerItem = totalJobs > 0 ? Math.floor(totalQty / totalJobs) : 0;
-            const remainder = totalJobs > 0 ? (totalQty % totalJobs) : 0;
+            if (parsedItems && parsedItems.length > 0) {
+                let foundDept = '';
+                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community'];
+                const firstJobName = parsedItems[0].jobType;
 
-            rawJobs.forEach((job, index) => {
-                const currentQty = (index === 0) ? (qtyPerItem + remainder) : qtyPerItem;
-                addTaskRow(job.trim(), currentQty || 1);
-            });
+                for (const dept of departments) {
+                    try {
+                        const res = await fetch(`db.php?action=get_dept_tasks&dept=${dept}`);
+                        const result = await res.json();
+                        if (result.success && result.data) {
+                            const match = result.data.find(d => d.task_name === firstJobName);
+                            if (match) {
+                                foundDept = dept;
+                                currentDeptTasks = result.data;
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                if (foundDept && deptSelect) {
+                    deptSelect.value = foundDept;
+                    if (wrapper) wrapper.classList.remove('hidden');
+
+                    parsedItems.forEach(item => {
+                        addDeptTaskRow(item.jobType, item.quantity);
+                    });
+                } else {
+                    if (deptSelect) deptSelect.value = '';
+                    if (wrapper) wrapper.classList.add('hidden');
+
+                    parsedItems.forEach(item => {
+                        addTaskRow(item.jobType, item.quantity);
+                    });
+                }
+            } else if (task.jobType) {
+                const jobs = task.jobType.split(',').map(j => j.trim());
+                let foundDept = '';
+                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community'];
+
+                for (const dept of departments) {
+                    try {
+                        const res = await fetch(`db.php?action=get_dept_tasks&dept=${dept}`);
+                        const result = await res.json();
+                        if (result.success && result.data) {
+                            const match = result.data.find(d => jobs.includes(d.task_name));
+                            if (match) {
+                                foundDept = dept;
+                                currentDeptTasks = result.data;
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                const totalQty = parseFloat(task.quantity) || 1;
+                const qtyPerItem = Math.floor(totalQty / jobs.length);
+                let remainder = totalQty % jobs.length;
+
+                if (foundDept && deptSelect) {
+                    deptSelect.value = foundDept;
+                    if (wrapper) wrapper.classList.remove('hidden');
+
+                    jobs.forEach((jobText, index) => {
+                        let assignedQty = qtyPerItem + (index === 0 ? remainder : 0);
+                        if (assignedQty <= 0) assignedQty = 1;
+                        addDeptTaskRow(jobText, assignedQty);
+                    });
+                } else {
+                    if (deptSelect) deptSelect.value = '';
+                    if (wrapper) wrapper.classList.add('hidden');
+
+                    jobs.forEach((jobText, index) => {
+                        let assignedQty = qtyPerItem + (index === 0 ? remainder : 0);
+                        if (assignedQty <= 0) assignedQty = 1;
+                        addTaskRow(jobText, assignedQty);
+                    });
+                }
+            } else {
+                if (deptSelect) deptSelect.value = '';
+                if (wrapper) wrapper.classList.add('hidden');
+                addTaskRow('', task.quantity || 1);
+            }
 
             if (taskModal) taskModal.classList.remove('hidden');
 
@@ -969,7 +1024,6 @@
             }, 50);
         }
 
-
         function renderMonthlySummary() {
             const tbody = document.getElementById('summaryTableBody');
             if (!tbody) return;
@@ -977,7 +1031,7 @@
             const summaryEmp = document.getElementById('summaryFilterEmployee')?.value || 'ALL';
             const summaryMonth = document.getElementById('summaryFilterMonth')?.value || '';
 
-            // กรองข้อมูลภาระงาน
+            // กรองข้อมูลงาน
             const filtered = globalTasks.filter(t => {
                 if (!t.date) return false;
 
@@ -1060,7 +1114,6 @@
                 const monthEl = document.getElementById('summaryFilterMonth');
                 if (monthEl) monthEl.value = '';
             }
-
             renderMonthlySummary();
             clearSummaryMonthFilter();
         }
@@ -1075,7 +1128,6 @@
                 const inputEl = document.getElementById('summaryFilterMonth');
                 if (inputEl) inputEl.value = '';
             }
-
             renderMonthlySummary();
         }
 

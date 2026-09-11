@@ -2,6 +2,7 @@
 // db.php
 session_start();
 
+date_default_timezone_set('Asia/Bangkok');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json; charset=utf-8');
@@ -22,6 +23,7 @@ $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     PDO::ATTR_EMULATE_PREPARES   => false,
+    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci; SET time_zone = '+07:00';"
 ];
 
 try {
@@ -88,19 +90,15 @@ $currentRole = $_SESSION['user_role'];
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_data') {
     try {
         if ($currentRole === 'admin') {
-            $stmtTasks = $pdo->query("SELECT id, DATE_FORMAT(task_date, '%d-%m-%Y') AS date, recorder_name AS recorder, job_type AS jobType, quantity, score, note FROM tasks ORDER BY id DESC");
-        } else {
-            $stmtTasks = $pdo->prepare("SELECT id, DATE_FORMAT(task_date, '%d-%m-%Y') AS date, recorder_name AS recorder, job_type AS jobType, quantity, score, note FROM tasks WHERE recorder_name = ? ORDER BY id DESC");
-            $stmtTasks->execute([$currentUser]);
-        }
-        $tasks = $stmtTasks->fetchAll();
-
-        if ($currentRole === 'admin') {
+            $stmtTasks = $pdo->query("SELECT id, DATE_FORMAT(task_date, '%d-%m-%Y') AS date, recorder_name AS recorder, job_type AS jobType, quantity, score, note, task_items FROM tasks ORDER BY id DESC");
             $stmtEmp = $pdo->query("SELECT DISTINCT TRIM(REPLACE(REPLACE(name, '\r', ''), '\n', '')) AS name FROM employees WHERE name IS NOT NULL AND TRIM(name) != '' ORDER BY id ASC");
             $employees = array_column($stmtEmp->fetchAll(), 'name');
         } else {
+            $stmtTasks = $pdo->prepare("SELECT id, DATE_FORMAT(task_date, '%d-%m-%Y') AS date, recorder_name AS recorder, job_type AS jobType, quantity, score, note, task_items FROM tasks WHERE recorder_name = ? ORDER BY id DESC");
+            $stmtTasks->execute([$currentUser]);
             $employees = [$currentUser];
         }
+        $tasks = $stmtTasks->fetchAll();
 
         // ดึงรายการประเภทงานทั่วไปสำรอง (ถ้ามี)
         $jobTypes = [];
@@ -151,15 +149,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
             }
         }
 
-        $recorder = ($currentRole === 'admin') ? trim($input['recorder'] ?? $currentUser) : $currentUser;
-        $note     = trim($input['note'] ?? '');
-        $rowId    = intval($input['rowId'] ?? 0);
+        $rowId = intval($input['rowId'] ?? 0);
+        $note  = trim($input['note'] ?? '');
+
+        $inputRecorder = trim($input['recorder'] ?? '');
+        $currentUserVal = isset($currentUser) ? trim($currentUser) : '';
+
+        if ($currentRole === 'admin') {
+            $recorder = !empty($inputRecorder) ? $inputRecorder : $currentUserVal;
+        } else {
+            $recorder = $currentUserVal;
+        }
+
+        if (empty($recorder)) {
+            throw new Exception('ไม่พบชื่อผู้บันทึกข้อมูล กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        }
 
         $combinedJobTypes = [];
         $totalQty = 0;
         $totalScore = 0;
+        $taskItemsJson = null;
 
         if (!empty($input['items']) && is_array($input['items'])) {
+            $taskItemsJson = json_encode($input['items'], JSON_UNESCAPED_UNICODE);
             foreach ($input['items'] as $itm) {
                 if (!empty($itm['jobType'])) {
                     $combinedJobTypes[] = $itm['jobType'];
@@ -183,16 +195,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
 
             $stmt = $pdo->prepare("
                 UPDATE tasks 
-                SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?
+                SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?, task_items = ?
                 WHERE id = ?
             ");
-            $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $rowId]);
+            $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $taskItemsJson, $rowId]);
         } else {
             $stmt = $pdo->prepare("
-                INSERT INTO tasks (task_date, recorder_name, job_type, quantity, score, note)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO tasks (task_date, recorder_name, job_type, quantity, score, note, task_items)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note]);
+            $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $taskItemsJson]);
         }
 
         echo json_encode([
@@ -242,8 +254,10 @@ if ($action === 'get_dept_tasks') {
             $taskName = '';
             $score = 0;
 
-            // 1. ตรวจหาชื่อรายการ
-            if (isset($row['type_name'])) {
+            // ตรวจหาชื่อรายการ รองรับทั้ง job_name, type_name, task_name, name ภาษาไทย
+            if (isset($row['job_name'])) {
+                $taskName = $row['job_name'];
+            } elseif (isset($row['type_name'])) {
                 $taskName = $row['type_name'];
             } elseif (isset($row['task_name'])) {
                 $taskName = $row['task_name'];
@@ -251,7 +265,8 @@ if ($action === 'get_dept_tasks') {
                 $taskName = $row['name'];
             } else {
                 foreach ($row as $key => $val) {
-                    if (strpos(strtolower($key), 'name') !== false || strpos(strtolower($key), 'title') !== false) {
+                    $lKey = strtolower($key);
+                    if (strpos($lKey, 'name') !== false || strpos($lKey, 'title') !== false || strpos($lKey, 'job') !== false) {
                         $taskName = $val;
                         break;
                     }
@@ -263,7 +278,7 @@ if ($action === 'get_dept_tasks') {
                 $taskName = $values[1] ?? reset($row);
             }
 
-            // 2. ตรวจหาคะแนน (score)
+            // ตรวจหาคะแนน
             if (isset($row['score'])) {
                 $score = floatval($row['score']);
             } else {
