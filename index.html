@@ -614,13 +614,18 @@
 
             const rowHtml = `
         <div id="${rowId}" class="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-            <div class="flex-1 relative">
-                <select class="dept-task-select w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-emerald-500 focus:outline-none appearance-none cursor-pointer" onchange="calculateModalTotals()">
+            <div class="flex-1 relative dept-task-combobox">
+                <select class="dept-task-select sr-only" tabindex="-1" aria-hidden="true" onchange="calculateModalTotals()">
                     ${optionsHtml}
                 </select>
-                <div class="absolute right-3 top-3 text-slate-400 pointer-events-none">
-                    <i class="fas fa-chevron-down text-xs"></i>
+                <div class="relative flex items-center">
+                    <input type="text" class="dept-task-search w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-text"
+                        autocomplete="off" placeholder="-- พิมพ์เพื่อค้นหารายละเอียดงาน --" value="${selectedTask || ''}">
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </div>
                 </div>
+                <div class="dept-task-options absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg hidden"></div>
             </div>
             <div class="w-24">
                 <input type="number" min="1" value="${qty}" placeholder="จำนวน" oninput="calculateModalTotals()"
@@ -634,7 +639,122 @@
     `;
 
             container.insertAdjacentHTML('beforeend', rowHtml);
+
+            const rowEl = document.getElementById(rowId);
+            if (rowEl) initDeptTaskCombobox(rowEl);
+
             calculateModalTotals();
+        }
+
+        // ==================== ช่องค้นหาสำหรับ "รายละเอียดงานตามแผนก" (ต่อแถว) ====================
+        function initDeptTaskCombobox(rowEl) {
+            const select = rowEl.querySelector('.dept-task-select');
+            const input = rowEl.querySelector('.dept-task-search');
+            const list = rowEl.querySelector('.dept-task-options');
+            if (!select || !input || !list) return;
+
+            let activeIndex = -1;
+
+            const getOptions = () => currentDeptTasks.map(t => ({
+                value: t.task_name,
+                label: t.task_name,
+                score: t.score || 0
+            }));
+
+            const filterOptions = (query) => {
+                const q = (query || '').trim().toLowerCase();
+                const opts = getOptions();
+                if (!q) return opts;
+                return opts.filter(o => o.label.toLowerCase().includes(q));
+            };
+
+            const render = (options) => {
+                activeIndex = -1;
+                if (!options.length) {
+                    list.innerHTML = `<div class="p-3 text-sm text-slate-400 text-center">ไม่พบรายการที่ตรงกับคำค้นหา</div>`;
+                    return;
+                }
+                list.innerHTML = options.map(o => `
+                    <div data-value="${o.value}"
+                        class="px-3.5 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer transition-colors">
+                        ${o.label}${o.score ? ` <span class="text-xs text-slate-400">(${o.score} คะแนน)</span>` : ''}
+                    </div>
+                `).join('');
+                list.querySelectorAll('[data-value]').forEach(el => {
+                    el.addEventListener('mousedown', (e) => {
+                        // ใช้ mousedown + preventDefault กันไม่ให้ input เสีย focus ก่อนรับค่าคลิก
+                        e.preventDefault();
+                        chooseValue(el.dataset.value);
+                    });
+                });
+            };
+
+            const highlight = () => {
+                const items = Array.from(list.querySelectorAll('[data-value]'));
+                items.forEach((el, i) => {
+                    el.classList.toggle('bg-emerald-50', i === activeIndex);
+                    el.classList.toggle('text-emerald-800', i === activeIndex);
+                });
+                if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: 'nearest' });
+            };
+
+            const syncDisplay = () => {
+                const match = getOptions().find(o => o.value === select.value);
+                input.value = match ? match.label : (select.value || '');
+            };
+
+            const chooseValue = (value) => {
+                select.value = value;
+                syncDisplay();
+                list.classList.add('hidden');
+                select.dispatchEvent(new Event('change'));
+            };
+
+            input.addEventListener('focus', () => {
+                render(filterOptions(input.value));
+                list.classList.remove('hidden');
+            });
+
+            input.addEventListener('input', () => {
+                render(filterOptions(input.value));
+                list.classList.remove('hidden');
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (list.classList.contains('hidden') && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                    render(filterOptions(input.value));
+                    list.classList.remove('hidden');
+                    return;
+                }
+                const items = Array.from(list.querySelectorAll('[data-value]'));
+                if (!items.length) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                    highlight();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                    highlight();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const target = items[activeIndex] || items[0];
+                    if (target) chooseValue(target.dataset.value);
+                } else if (e.key === 'Escape') {
+                    list.classList.add('hidden');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!rowEl.contains(e.target)) {
+                    list.classList.add('hidden');
+                    // ถ้าพิมพ์ค้างไว้แต่ไม่ได้เลือกรายการ ให้คืนค่าข้อความตามค่าที่เลือกจริง
+                    syncDisplay();
+                }
+            });
+
+            syncDisplay();
         }
 
         // ฟังก์ชันลบแถว
