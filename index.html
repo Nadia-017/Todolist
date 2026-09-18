@@ -599,6 +599,13 @@
         }
 
         // ฟังก์ชันเพิ่มแถวรายการงานตามแผนก
+        // เรียงรายการงานตามแผนกตามลำดับตัวอักษร (รองรับภาษาไทย)
+        function getSortedDeptTasks() {
+            return [...currentDeptTasks].sort((a, b) =>
+                (a.task_name || '').localeCompare(b.task_name || '', 'th')
+            );
+        }
+
         function addDeptTaskRow(selectedTask = '', qty = 1) {
             const container = document.getElementById('deptTaskItemsContainer');
             if (!container) return;
@@ -606,7 +613,8 @@
             const rowId = 'dept-row-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
             let optionsHtml = '<option value="" disabled selected>-- เลือกรายละเอียดงาน --</option>';
-            currentDeptTasks.forEach(task => {
+            const sortedDeptTasks = getSortedDeptTasks();
+            sortedDeptTasks.forEach(task => {
                 const isSelected = task.task_name === selectedTask ? 'selected' : '';
                 const scoreText = task.score ? ` (${task.score} คะแนน)` : '';
                 optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${task.task_name}</option>`;
@@ -655,7 +663,7 @@
 
             let activeIndex = -1;
 
-            const getOptions = () => currentDeptTasks.map(t => ({
+            const getOptions = () => getSortedDeptTasks().map(t => ({
                 value: t.task_name,
                 label: t.task_name,
                 score: t.score || 0
