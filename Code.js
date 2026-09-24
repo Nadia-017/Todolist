@@ -1,8 +1,12 @@
 const express = require('express');
 const mysql = require('mysql2/promise'); 
 const path = require('path');
-
+const cors = require('cors');
 const app = express();
+
+app.use(cors({
+    origin: 'https://todolist-tmy.netlify.app'
+}));
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -66,7 +70,22 @@ let employees = employeesRows
 
 
     // ดึงประเภทงานจากตาราง job_types
-    const [jobTypesRows] = await pool.query('SELECT type_name AS type, score FROM job_types');
+const [jobTypesRows] = await pool.query(`
+  SELECT type_name AS type FROM finance_types
+  UNION ALL
+  SELECT type_name AS type FROM loan_types
+  UNION ALL
+  SELECT type_name AS type FROM debt_types
+  UNION ALL
+  SELECT type_name AS type FROM accounting_types
+  UNION ALL
+  SELECT type_name AS type FROM it_types
+  UNION ALL
+  SELECT type_name AS type FROM administrative_types
+  UNION ALL
+  SELECT type_name AS type FROM hr_types
+`);
+
 
     res.json({
       success: true,
@@ -189,13 +208,26 @@ app.get('/api/sheet-data', async (req, res) => {
   }
 });
 
+// 5. ลบข้อมูลงานตาม ID
+app.post('/api/delete-task/:id', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const deleteQuery = 'DELETE FROM tasks WHERE id = ?';
+    const [result] = await pool.execute(deleteQuery, [taskId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'ไม่พบข้อมูลที่ต้องการลบ' });
+    }
+
+    res.json({ success: true, message: 'ลบข้อมูลเรียบร้อยแล้ว' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 /*const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
 */
-
-app.use(cors({
-  origin: 'https://todolist-tmy.netlify.app'
-}));

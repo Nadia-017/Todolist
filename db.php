@@ -303,4 +303,42 @@ if ($action === 'get_dept_tasks') {
     }
     exit;
 }
+
+// 6. DELETE TASK
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_task') {
+    try {
+        $rawInput = file_get_contents('php://input');
+        $input = json_decode($rawInput, true);
+        $rowId = intval($input['rowId'] ?? 0);
+
+        if ($rowId <= 0) {
+            throw new Exception('ไม่พบรหัสข้อมูลที่ต้องการลบ');
+        }
+
+        if ($currentRole !== 'admin') {
+            $chk = $pdo->prepare("SELECT recorder_name FROM tasks WHERE id = ?");
+            $chk->execute([$rowId]);
+            $owner = $chk->fetchColumn();
+            if ($owner !== $currentUser) {
+                throw new Exception('คุณไม่มีสิทธิ์ลบรายการของผู้อื่น');
+            }
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM tasks WHERE id = ?");
+        $stmt->execute([$rowId]);
+
+        echo json_encode([
+            'success' => true, 
+            'message' => 'ลบข้อมูลเรียบร้อยแล้ว'
+        ], JSON_UNESCAPED_UNICODE);
+
+    } catch (Exception $e) {
+        http_response_code(200);
+        echo json_encode([
+            'success' => false, 
+            'error' => $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
 ?>

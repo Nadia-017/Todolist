@@ -105,7 +105,6 @@
                 </div>
             </div>
         </div>
-        </div>
     </header>
 
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -120,6 +119,30 @@
 
     </main>
 
+    <div id="deleteModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+        <div
+            class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-sm w-full p-6 text-center space-y-4 modal-animate">
+            <div
+                class="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">ยืนยันการลบข้อมูล</h3>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้? </p>
+            </div>
+            <div class="flex space-x-3 pt-2">
+                <button type="button" onclick="closeDeleteModal()"
+                    class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-2.5 rounded-xl text-xs sm:text-sm transition-all">
+                    ยกเลิก
+                </button>
+                <button type="button" id="confirmDeleteBtn"
+                    class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2.5 rounded-xl text-xs sm:text-sm transition-all shadow-md shadow-rose-500/20">
+                    ลบข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Toast Notification -->
     <div id="toast"
@@ -147,22 +170,19 @@
         let globalEmployees = [];
         let globalJobTypes = [];
         let currentUser = null;
-        //  let currentViewMode = 'table';
         let currentTab = 'tasks';
         let rowCounter = 0;
         let summaryMonthPickerInstance = null;
         let datePickerInstance = null;
-
+        let taskIdToDelete = null; 
 
         window.onload = async function () {
             await loadHtmlComponents();
 
-            //  ตั้งค่าวันที่ปัจจุบัน
             const todayStr = new Date().toISOString().substring(0, 10);
             const taskDateEl = document.getElementById('taskDate');
             if (taskDateEl) taskDateEl.value = todayStr;
 
-            //  ดึงข้อมูลจาก Backend 
             await loadDataFromBackend();
         };
 
@@ -256,37 +276,190 @@
             return dateStr;
         }
 
-
+        // เรนเดอร์แถวตาราง (แสดงปุ่มลบเฉพาะแอดมินเท่านั้น)
         function renderTableRows(tasks) {
             const tbody = document.getElementById('taskTableBody');
-
             if (!tbody) return;
+            tbody.innerHTML = '';
 
             if (tasks.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลภาระงานที่ตรงตามเงื่อนไข</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลภาระงานที่ตรงตามเงื่อนไข</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = tasks.map(t => `
-        <tr class="hover:bg-slate-50/80 transition-colors">
-<td class="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">${formatDateToDMY(t.date)}</td>
-          <td class="px-4 py-3.5 text-slate-800 font-semibold">${t.recorder || '-'}</td>
+            const isAdmin = currentUser && currentUser.role === 'admin';
+
+            tasks.forEach(task => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-emerald-50/30 transition-colors duration-150';
+
+                tr.innerHTML = `
+            <td class="px-4 py-3.5 text-slate-700 font-medium">${task.date}</td>
             <td class="px-4 py-3.5 text-slate-700">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100/80 text-emerald-800">
-                    ${t.jobType || '-'}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700">
+                    <i class="fas fa-user-circle mr-1.5 text-emerald-600"></i>${task.recorder || '-'}
                 </span>
             </td>
-            <td class="px-4 py-3.5 text-center text-slate-700 font-medium">${t.quantity || 0}</td>
-            <td class="px-4 py-3.5 text-center font-bold text-emerald-600">${t.score ? Number(t.score).toLocaleString('th-TH') : 0}</td>
-            <td class="px-4 py-3.5 text-slate-500 max-w-xs truncate">${t.note || '-'}</td>
+            <td class="px-4 py-3.5 text-slate-700">${task.jobType}</td>
+            <td class="px-4 py-3.5 text-center text-slate-700 font-semibold">${task.quantity}</td>
             <td class="px-4 py-3.5 text-center">
-                <button onclick="editTask(${t.id})" class="text-slate-400 hover:text-emerald-600 p-1.5 transition-colors rounded-lg hover:bg-emerald-50" title="แก้ไข">
-                    <i class="fas fa-edit"></i>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100/60 text-emerald-700">
+                    ${task.score ? Number(task.score).toLocaleString('th-TH') : 0} คะแนน
+                </span>
+            </td>
+            <td class="px-4 py-3.5 text-slate-600 max-w-xs truncate">${task.note || '-'}</td>
+            
+            <!-- ปุ่มลบ: แสดงเฉพาะ Admin เท่านั้น ถ้าไม่ใช่ให้เว้นว่างไว้ -->
+            <td class="px-4 py-3.5 text-center">
+                ${isAdmin ? `
+                    <button onclick="deleteTask(${task.id})" class="w-9 h-9 mx-auto bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="ลบข้อมูล">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                ` : `<span class="text-slate-300">-</span>`}
+            </td>
+
+            <!-- ปุ่มแก้ไข -->
+            <td class="px-4 py-3.5 text-center">
+                <button onclick="openEditModal(${task.id})" class="w-9 h-9 mx-auto bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="แก้ไขข้อมูล">
+                    <i class="fas fa-edit text-xs"></i>
                 </button>
             </td>
-        </tr>
-    `).join('');
+        `;
+                tbody.appendChild(tr);
+            });
         }
+
+        // ฟังก์ชันจัดการซ่อนหัวตารางช่อง "ลบ" ตามสิทธิ์ผู้ใช้งาน
+        function updateDeleteColumnVisibility() {
+            const thDelete = document.getElementById('thDeleteColumn');
+            if (thDelete) {
+                if (currentUser && currentUser.role === 'admin') {
+                    thDelete.style.display = ''; // แสดงคอลัมน์ลบสำหรับแอดมิน
+                } else {
+                    thDelete.style.display = 'none'; // ซ่อนคอลัมน์ลบสำหรับคนที่ไม่ใช่แอดมิน
+                }
+            }
+        }
+
+        // ฟังก์ชัน ให้ลบช่องลบถ้าไม่ใช่แอดมิน
+        function renderTableRows(tasks) {
+            const tbody = document.getElementById('taskTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            updateDeleteColumnVisibility(); // เรียกเช็คการแสดงผลหัวตาราง
+
+            if (tasks.length === 0) {
+                const colSpan = (currentUser && currentUser.role === 'admin') ? 8 : 7;
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลภาระงานที่ตรงตามเงื่อนไข</td></tr>`;
+                return;
+            }
+
+            const isAdmin = currentUser && currentUser.role === 'admin';
+
+            tasks.forEach(task => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-emerald-50/30 transition-colors duration-150';
+
+                let rowHTML = `
+            <td class="px-4 py-3.5 text-slate-700 font-medium">${task.date}</td>
+            <td class="px-4 py-3.5 text-slate-700">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700">
+                    <i class="fas fa-user-circle mr-1.5 text-emerald-600"></i>${task.recorder || '-'}
+                </span>
+            </td>
+            <td class="px-4 py-3.5 text-slate-700">${task.jobType}</td>
+            <td class="px-4 py-3.5 text-center text-slate-700 font-semibold">${task.quantity}</td>
+            <td class="px-4 py-3.5 text-center">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100/60 text-emerald-700">
+                    ${task.score ? Number(task.score).toLocaleString('th-TH') : 0} คะแนน
+                </span>
+            </td>
+            <td class="px-4 py-3.5 text-slate-600 max-w-xs truncate">${task.note || '-'}</td>
+        `;
+                // ถ้าเป็นแอดมิน ให้ใส่คอลัมน์ปุ่มลบเข้าไปด้วย
+                if (isAdmin) {
+                    rowHTML += `
+                <td class="px-4 py-3.5 text-center">
+                    <button onclick="deleteTask(${task.id})" class="w-9 h-9 mx-auto bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="ลบข้อมูล">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </td>
+            `;
+                }
+                // คอลัมน์ปุ่มแก้ไข (แสดงปกติสำหรับทุกคน)
+                rowHTML += `
+            <td class="px-4 py-3.5 text-center">
+                <button onclick="openEditModal(${task.id})" class="w-9 h-9 mx-auto bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="แก้ไขข้อมูล">
+                    <i class="fas fa-edit text-xs"></i>
+                </button>
+            </td>
+        `;
+
+                tr.innerHTML = rowHTML;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ฟังก์ชันรองรับการเรียกจากปุ่มแก้ไข
+        function openEditModal(id) {
+            if (typeof editTask === 'function') {
+                editTask(id);
+            } else {
+                console.error('ไม่พบฟังก์ชัน editTask');
+            }
+        }
+
+        // เปิด Modal ยืนยันการลบ
+        function deleteTask(taskId) {
+            taskIdToDelete = taskId;
+            const deleteModal = document.getElementById('deleteModal');
+            if (deleteModal) {
+                deleteModal.classList.remove('hidden');
+            }
+        }
+
+        // ปิด Modal ยืนยันการลบ
+        function closeDeleteModal() {
+            taskIdToDelete = null;
+            const deleteModal = document.getElementById('deleteModal');
+            if (deleteModal) {
+                deleteModal.classList.add('hidden');
+            }
+        }
+
+        // ผูก Event ปุ่มยืนยันการลบใน Modal
+        document.addEventListener('DOMContentLoaded', () => {
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', async () => {
+                    if (!taskIdToDelete) return;
+
+                    const currentId = taskIdToDelete;
+                    closeDeleteModal();
+
+                    try {
+                        const response = await fetch('db.php?action=delete_task', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rowId: currentId })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            showToast(result.message || 'ลบข้อมูลสำเร็จ', 'success');
+                            await loadDataFromBackend();
+                        } else {
+                            showToast(result.error || 'เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting task:', error);
+                        showToast('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์เพื่อลบข้อมูลได้', 'error');
+                    }
+                });
+            }
+        });
 
         function renderCardItems(tasks) {
             const container = document.getElementById('cardViewContainer');
@@ -297,15 +470,24 @@
                 return;
             }
 
+            const isAdmin = currentUser && currentUser.role === 'admin';
+
             container.innerHTML = tasks.map(t => `
         <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm space-y-3 hover:shadow-md transition-all">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg">
-<i class="far fa-calendar-alt mr-1.5"></i>${formatDateToDMY(t.date)}
+                    <i class="far fa-calendar-alt mr-1.5"></i>${formatDateToDMY(t.date)}
                 </span>
-                <button onclick="editTask(${t.id})" class="text-slate-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-slate-50" title="แก้ไข">
-                    <i class="fas fa-edit"></i>
-                </button>
+                <div class="flex space-x-1">
+                    ${isAdmin ? `
+                        <button onclick="deleteTask(${t.id})" class="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-slate-50" title="ลบ">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="openEditModal(${t.id})" class="text-slate-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-slate-50" title="แก้ไข">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
             </div>
             <div>
                 <h4 class="font-bold text-slate-800 text-sm flex items-center">
@@ -320,6 +502,7 @@
         </div>
     `).join('');
         }
+
 
         function filterAndRenderTasks() {
             const filterDate = document.getElementById('filterDate')?.value || '';
@@ -343,7 +526,6 @@
             renderCardItems(filtered);
         }
 
-        // อัปเดตฟังก์ชัน switchMainTab
         function switchMainTab(tab) {
             currentTab = tab;
             const taskListContainer = document.getElementById('taskListContainer');
@@ -401,28 +583,23 @@
                 }
             }
 
-            // จัดการการแสดงผลตามสิทธิ์การใช้งาน
             if (currentUser && currentUser.role === 'admin') {
-                // Admin
                 if (filterEmpCard) filterEmpCard.classList.remove('hidden');
                 if (filterGridContainer) {
                     filterGridContainer.classList.remove('lg:grid-cols-3');
                     filterGridContainer.classList.add('lg:grid-cols-4');
                 }
-
                 if (summaryEmpCard) summaryEmpCard.classList.remove('hidden');
                 if (summaryGridContainer) {
                     summaryGridContainer.classList.remove('lg:grid-cols-4');
                     summaryGridContainer.classList.add('lg:grid-cols-5');
                 }
             } else {
-                // User ทั่วไป
                 if (filterEmpCard) filterEmpCard.classList.add('hidden');
                 if (filterGridContainer) {
                     filterGridContainer.classList.remove('lg:grid-cols-4');
                     filterGridContainer.classList.add('lg:grid-cols-3');
                 }
-
                 if (summaryEmpCard) summaryEmpCard.classList.add('hidden');
                 if (summaryGridContainer) {
                     summaryGridContainer.classList.remove('lg:grid-cols-5');
@@ -442,7 +619,6 @@
             if (filterJob) filterJob.innerHTML = optionsHtml;
         }
 
-
         function initDatePicker() {
             const inputEl = document.getElementById('taskDate');
             if (!inputEl) return null;
@@ -460,6 +636,19 @@
                 });
             }
             return datePickerInstance;
+        }
+
+        // ฟังก์ชันล้างค่าตัวกรองเดือนในหน้าสรุปผล
+        function clearSummaryMonthFilter(e) {
+            if (e) e.stopPropagation();
+
+            if (summaryMonthPickerInstance) {
+                summaryMonthPickerInstance.clear();
+            } else {
+                const inputEl = document.getElementById('summaryFilterMonth');
+                if (inputEl) inputEl.value = '';
+            }
+            renderMonthlySummary();
         }
 
 
@@ -488,86 +677,14 @@
             }
         }
 
-        // ฟังก์ชันสำหรับสลับหน้าฟอร์มแผนก
-        function toggleDepartmentForm() {
-            const selectedDept = document.getElementById('departmentSelect').value;
-            const allForms = document.querySelectorAll('.dept-form');
-
-            allForms.forEach(form => form.classList.add('hidden'));
-
-            if (selectedDept) {
-                const activeForm = document.getElementById(`form-${selectedDept}`);
-                if (activeForm) {
-                    activeForm.classList.remove('hidden');
-                    const container = document.getElementById(`container-${selectedDept}`);
-                    if (container && container.children.length === 0) {
-                        addDeptTaskRow(selectedDept);
-                    }
-                }
-            }
-        }
-
-        // ฟังก์ชันเพิ่มรายการย่อยในแผนก
-        function addDeptTaskRow(deptKey) {
-            const container = document.getElementById(`container-${deptKey}`);
-            if (!container) return;
-
-            const rowId = `dept-row-${Date.now()}`;
-
-            // กำหนด Placeholder ให้ตรงตามแผนก
-            const placeholders = {
-                finance: 'ระบุรายการรับ-จ่าย/จำนวนเงิน',
-                loan: 'ระบุเลขที่สัญญา/รายละเอียดสินเชื่อ',
-                debt_collection: 'ระบุรายละเอียดการติดตามหนี้',
-                accounting: 'ระบุหมวดหมู่บัญชี/เลขที่ใบเสร็จ',
-                it: 'ระบุระบบ/อุปกรณ์ที่ดำเนินการแก้ไข',
-                administrative: 'ระบุรายละเอียดงานสารบรรณ/พัสดุ',
-                hr: 'ระบุเรื่องที่ดำเนินการ (ลา/สวัสดิการ/OT)',
-                community: 'ระบุชื่อชุมชน/โครงการ'
-            };
-
-            const placeholderText = placeholders[deptKey] || 'ระบุรายละเอียด';
-
-            const rowHTML = `
-        <div id="${rowId}" class="flex items-center space-x-2">
-            <input type="text" name="dept_detail_${deptKey}[]" required placeholder="${placeholderText}"
-                class="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-            <button type="button" onclick="removeDeptTaskRow('${rowId}')"
-                class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 flex items-center justify-center transition-colors flex-shrink-0">
-                <i class="fas fa-trash-alt text-xs"></i>
-            </button>
-        </div>
-    `;
-            container.insertAdjacentHTML('beforeend', rowHTML);
-        }
-
-
-        function handleDepartmentChange(deptValue) {
-            // ซ่อนฟอร์มแผนกทั้งหมดก่อน
-            document.querySelectorAll('.dept-form').forEach(el => {
-                el.classList.add('hidden');
-            });
-
-            // แสดงฟอร์มแผนกที่เลือก
-            if (deptValue) {
-                const targetForm = document.getElementById(`dept-${deptValue}`);
-                if (targetForm) {
-                    targetForm.classList.remove('hidden');
-                }
-            }
-        }
-
-        // ฟังก์ชันลบรายการย่อย
-        function removeDeptTaskRow(rowId) {
-            const row = document.getElementById(rowId);
-            if (row) {
-                row.remove();
-            }
+        function getSortedDeptTasks() {
+            return [...currentDeptTasks].sort((a, b) =>
+                (a.task_name || '').localeCompare(b.task_name || '', 'th')
+            );
         }
 
         let currentDeptTasks = [];
 
-        //  ดึงรายการงานตามแผนก
         async function loadDepartmentTasks(deptKey) {
             const wrapper = document.getElementById('deptTaskWrapper');
             const container = document.getElementById('deptTaskItemsContainer');
@@ -588,7 +705,7 @@
                     currentDeptTasks = result.data;
                     wrapper.classList.remove('hidden');
                     container.innerHTML = '';
-                    addDeptTaskRow(); // เพิ่มแถวแรกให้อัตโนมัติ
+                    addDeptTaskRow();
                 } else {
                     throw new Error(result.error || 'ดึงข้อมูลไม่สำเร็จ');
                 }
@@ -596,14 +713,6 @@
                 console.error(err);
                 alert('เกิดข้อผิดพลาดในการดึงรายการงานตามแผนก');
             }
-        }
-
-        // ฟังก์ชันเพิ่มแถวรายการงานตามแผนก
-        // เรียงรายการงานตามแผนกตามลำดับตัวอักษร (รองรับภาษาไทย)
-        function getSortedDeptTasks() {
-            return [...currentDeptTasks].sort((a, b) =>
-                (a.task_name || '').localeCompare(b.task_name || '', 'th')
-            );
         }
 
         function addDeptTaskRow(selectedTask = '', qty = 1) {
@@ -616,45 +725,41 @@
             const sortedDeptTasks = getSortedDeptTasks();
             sortedDeptTasks.forEach(task => {
                 const isSelected = task.task_name === selectedTask ? 'selected' : '';
-                const scoreText = task.score ? ` (${task.score} คะแนน)` : '';
                 optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${task.task_name}</option>`;
             });
 
             const rowHtml = `
-        <div id="${rowId}" class="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-            <div class="flex-1 relative dept-task-combobox">
-                <select class="dept-task-select sr-only" tabindex="-1" aria-hidden="true" onchange="calculateModalTotals()">
-                    ${optionsHtml}
-                </select>
-                <div class="relative flex items-center">
-                    <input type="text" class="dept-task-search w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-text"
-                        autocomplete="off" placeholder="-- พิมพ์เพื่อค้นหารายละเอียดงาน --" value="${selectedTask || ''}">
-                    <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        <i class="fas fa-chevron-down text-xs"></i>
+                <div id="${rowId}" class="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+                    <div class="flex-1 relative dept-task-combobox">
+                        <select class="dept-task-select sr-only" tabindex="-1" aria-hidden="true" onchange="calculateModalTotals()">
+                            ${optionsHtml}
+                        </select>
+                        <div class="relative flex items-center">
+                            <input type="text" class="dept-task-search w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-text"
+                                autocomplete="off" placeholder="-- พิมพ์เพื่อค้นหารายละเอียดงาน --" value="${selectedTask || ''}">
+                            <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                        <div class="dept-task-options absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg hidden"></div>
                     </div>
+                    <div class="w-24">
+                        <input type="number" min="1" value="${qty}" placeholder="จำนวน" oninput="calculateModalTotals()"
+                            class="dept-task-qty w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <button type="button" onclick="removeDeptTaskRow('${rowId}')"
+                        class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors flex-shrink-0">
+                        <i class="fas fa-trash-alt text-sm"></i>
+                    </button>
                 </div>
-                <div class="dept-task-options absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg hidden"></div>
-            </div>
-            <div class="w-24">
-                <input type="number" min="1" value="${qty}" placeholder="จำนวน" oninput="calculateModalTotals()"
-                    class="dept-task-qty w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-            </div>
-            <button type="button" onclick="removeDeptTaskRow('${rowId}')"
-                class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors flex-shrink-0">
-                <i class="fas fa-trash-alt text-sm"></i>
-            </button>
-        </div>
-    `;
+            `;
 
             container.insertAdjacentHTML('beforeend', rowHtml);
-
             const rowEl = document.getElementById(rowId);
             if (rowEl) initDeptTaskCombobox(rowEl);
-
             calculateModalTotals();
         }
 
-        // ==================== ช่องค้นหาสำหรับ "รายละเอียดงานตามแผนก" (ต่อแถว) ====================
         function initDeptTaskCombobox(rowEl) {
             const select = rowEl.querySelector('.dept-task-select');
             const input = rowEl.querySelector('.dept-task-search');
@@ -690,30 +795,15 @@
                 `).join('');
                 list.querySelectorAll('[data-value]').forEach(el => {
                     el.addEventListener('mousedown', (e) => {
-                        // ใช้ mousedown + preventDefault กันไม่ให้ input เสีย focus ก่อนรับค่าคลิก
                         e.preventDefault();
                         chooseValue(el.dataset.value);
                     });
                 });
             };
 
-            const highlight = () => {
-                const items = Array.from(list.querySelectorAll('[data-value]'));
-                items.forEach((el, i) => {
-                    el.classList.toggle('bg-emerald-50', i === activeIndex);
-                    el.classList.toggle('text-emerald-800', i === activeIndex);
-                });
-                if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: 'nearest' });
-            };
-
-            const syncDisplay = () => {
-                const match = getOptions().find(o => o.value === select.value);
-                input.value = match ? match.label : (select.value || '');
-            };
-
             const chooseValue = (value) => {
                 select.value = value;
-                syncDisplay();
+                input.value = value;
                 list.classList.add('hidden');
                 select.dispatchEvent(new Event('change'));
             };
@@ -728,44 +818,13 @@
                 list.classList.remove('hidden');
             });
 
-            input.addEventListener('keydown', (e) => {
-                if (list.classList.contains('hidden') && (e.key === 'ArrowDown' || e.key === 'Enter')) {
-                    render(filterOptions(input.value));
-                    list.classList.remove('hidden');
-                    return;
-                }
-                const items = Array.from(list.querySelectorAll('[data-value]'));
-                if (!items.length) return;
-
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
-                    highlight();
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    activeIndex = Math.max(activeIndex - 1, 0);
-                    highlight();
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const target = items[activeIndex] || items[0];
-                    if (target) chooseValue(target.dataset.value);
-                } else if (e.key === 'Escape') {
-                    list.classList.add('hidden');
-                }
-            });
-
             document.addEventListener('click', (e) => {
                 if (!rowEl.contains(e.target)) {
                     list.classList.add('hidden');
-                    // ถ้าพิมพ์ค้างไว้แต่ไม่ได้เลือกรายการ ให้คืนค่าข้อความตามค่าที่เลือกจริง
-                    syncDisplay();
                 }
             });
-
-            syncDisplay();
         }
 
-        // ฟังก์ชันลบแถว
         function removeDeptTaskRow(rowId) {
             const row = document.getElementById(rowId);
             if (row) {
@@ -774,7 +833,6 @@
             }
         }
 
-        // เคลียร์ค่าแผนกตอนเปิด Modal
         function openTaskModal() {
             const modalTitle = document.getElementById('modalTitle');
             const formRowId = document.getElementById('formRowId');
@@ -790,11 +848,7 @@
             if (wrapper) wrapper.classList.add('hidden');
 
             const picker = initDatePicker();
-            const today = new Date();
-
-            if (picker) {
-                picker.setDate(today);
-            }
+            if (picker) picker.setDate(new Date());
 
             const container = document.getElementById('taskItemsContainer');
             if (container) container.innerHTML = '';
@@ -804,13 +858,92 @@
             if (taskModal) taskModal.classList.remove('hidden');
         }
 
-        function closeTaskModal() {
-            const taskModal = document.getElementById('taskModal');
-            if (taskModal) taskModal.classList.add('hidden');
+        // ฟังก์ชันเพิ่มแถวรายการงานทั่วไป
+        function addTaskRow(jobType = '', quantity = 1) {
+            rowCounter++;
+            const rowId = `item_row_${rowCounter}`;
+            const container = document.getElementById('taskItemsContainer');
+            if (!container) return;
+
+            let jobOptionsHtml = '<option value="">-- เลือกประเภทงาน --</option>';
+            if (typeof globalJobTypes !== 'undefined') {
+                globalJobTypes.forEach(j => {
+                    const currentType = (j.type || j.type_name || '').toString().trim();
+                    const selected = (currentType.toLowerCase() === jobType.toString().trim().toLowerCase()) ? 'selected' : '';
+                    jobOptionsHtml += `<option value="${currentType}" data-score="${j.score}" ${selected}>${currentType} (${j.score} คะแนน/หน่วย)</option>`;
+                });
+            }
+
+            const rowElement = document.createElement('div');
+            rowElement.id = rowId;
+            rowElement.className = 'flex items-center space-x-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200';
+            rowElement.innerHTML = `
+        <div class="flex-1">
+            <select onchange="calculateModalTotals()" class="item-job-type w-full bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+                ${jobOptionsHtml}
+            </select>
+        </div>
+        <div class="w-24">
+            <input type="number" min="1" value="${quantity}" onchange="calculateModalTotals()" onkeyup="calculateModalTotals()" class="item-qty w-full bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg p-2 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="จำนวน" required>
+        </div>
+        <button type="button" onclick="removeTaskRow('${rowId}')" class="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
+
+            container.appendChild(rowElement);
+            calculateModalTotals();
+        }
+
+        // ฟังก์ชันคำนวณผลรวมใน Modal
+        function calculateModalTotals() {
+            let totalItems = 0;
+            let totalQty = 0;
+            let totalScore = 0;
+
+            const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
+            deptRows.forEach(row => {
+                const select = row.querySelector('.dept-task-select');
+                const qtyInput = row.querySelector('.dept-task-qty');
+
+                if (select && select.value) {
+                    totalItems += 1;
+                    const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+                    totalQty += qty;
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerItem = parseFloat(selectedOption?.getAttribute('data-score') || 0);
+                    totalScore += (qty * scorePerItem);
+                }
+            });
+
+            const taskRows = document.querySelectorAll('#taskItemsContainer > div');
+            taskRows.forEach(row => {
+                const select = row.querySelector('.item-job-type, .task-select, select');
+                const qtyInput = row.querySelector('.item-qty, .task-qty, input[type="number"]');
+
+                if (select && select.value) {
+                    totalItems += 1;
+                    const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+                    totalQty += qty;
+                    const selectedOption = select.options[select.selectedIndex];
+                    const scorePerItem = parseFloat(selectedOption?.getAttribute('data-score') || 0);
+                    totalScore += (qty * scorePerItem);
+                }
+            });
+
+            const totalItemsEl = document.getElementById('modalTotalItems');
+            const totalQtyEl = document.getElementById('modalTotalQty');
+            const totalScoreEl = document.getElementById('modalTotalScore');
+
+            if (totalItemsEl) totalItemsEl.textContent = totalItems;
+            if (totalQtyEl) totalQtyEl.textContent = totalQty;
+            if (totalScoreEl) totalScoreEl.textContent = totalScore.toLocaleString();
         }
 
         async function submitTaskForm(e) {
             e.preventDefault();
+
+            // ดึงค่าจากฟอร์ม
             const recorder = document.getElementById('taskRecorder')?.value || '';
             const rowId = document.getElementById('formRowId')?.value || '';
             const dateInput = document.getElementById('taskDate')?.value || '';
@@ -819,10 +952,7 @@
             let date = dateInput;
             if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
                 const d = datePickerInstance.selectedDates[0];
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                date = `${year}-${month}-${day}`;
+                date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             }
 
             const items = [];
@@ -840,33 +970,7 @@
                     const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
 
                     if (jobType && qty > 0) {
-                        items.push({
-                            jobType: jobType,
-                            quantity: qty,
-                            score: qty * scorePerUnit
-                        });
-                    }
-                }
-            });
-
-            // 2. ดึงข้อมูลจากส่วน "รายการงานทั่วไป"
-            const taskRows = document.querySelectorAll('#taskItemsContainer > div');
-            taskRows.forEach(r => {
-                const select = r.querySelector('.item-job-type, .task-select, select');
-                const qtyInput = r.querySelector('.item-qty, .task-qty, input[type="number"]');
-
-                if (select && qtyInput) {
-                    const jobType = select.value;
-                    const qty = parseFloat(qtyInput.value) || 0;
-                    const selectedOption = select.options[select.selectedIndex];
-                    const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
-
-                    if (jobType && qty > 0) {
-                        items.push({
-                            jobType: jobType,
-                            quantity: qty,
-                            score: qty * scorePerUnit
-                        });
+                        items.push({ jobType, quantity: qty, score: qty * scorePerUnit });
                     }
                 }
             });
@@ -911,110 +1015,10 @@
         }
 
 
-        function addTaskRow(jobType = '', quantity = 1) {
-            rowCounter++;
-            const rowId = `item_row_${rowCounter}`;
-            const container = document.getElementById('taskItemsContainer');
-            if (!container) return;
-
-            const cleanJobType = jobType ? jobType.toString().trim() : '';
-
-            let jobOptionsHtml = '<option value="">-- เลือกประเภทงาน --</option>';
-            globalJobTypes.forEach(j => {
-                const currentType = (j.type || j.type_name || '').toString().trim();
-                const selected = (currentType.toLowerCase() === cleanJobType.toLowerCase()) ? 'selected' : '';
-                jobOptionsHtml += `<option value="${currentType}" data-score="${j.score}" ${selected}>${currentType} (${j.score} คะแนน/หน่วย)</option>`;
-            });
-
-            const rowElement = document.createElement('div');
-            rowElement.id = rowId;
-            rowElement.className = 'flex items-center space-x-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200';
-            rowElement.innerHTML = `
-            <div class="flex-1">
-                <select onchange="calculateModalTotals()" class="item-job-type w-full bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
-                    ${jobOptionsHtml}
-                </select>
-            </div>
-            <div class="w-24">
-                <input type="number" min="1" value="${quantity}" onchange="calculateModalTotals()" onkeyup="calculateModalTotals()" class="item-qty w-full bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg p-2 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="จำนวน" required>
-            </div>
-            <button type="button" onclick="removeTaskRow('${rowId}')" class="p-2 text-slate-400 hover:text-rose-500 transition-colors">
-                <i class="fas fa-trash-alt"></i>
-            </button>
-        `;
-
-            container.appendChild(rowElement);
-            calculateModalTotals();
+        function closeTaskModal() {
+            const taskModal = document.getElementById('taskModal');
+            if (taskModal) taskModal.classList.add('hidden');
         }
-
-        function removeTaskRow(rowId) {
-            const container = document.getElementById('taskItemsContainer');
-            if (!container) return;
-
-            if (container.children.length <= 1) {
-                showToast('ต้องมีอย่างน้อย 1 รายการภาระงาน', 'error');
-                return;
-            }
-            const el = document.getElementById(rowId);
-            if (el) el.remove();
-            calculateModalTotals();
-        }
-
-        // ฟังก์ชันคำนวณสรุปผลทั้งหมดใน Modal
-        function calculateModalTotals() {
-            let totalItems = 0; // จำนวนรายการทั้งหมด
-            let totalQty = 0;   // จำนวนงานรวมทั้งหมด
-            let totalScore = 0; // คะแนนรวมทั้งหมด (จำนวนงาน x คะแนน)
-
-            // 1. คำนวณจากรายการงานตามแผนก (deptTaskItemsContainer)
-            const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
-            deptRows.forEach(row => {
-                const select = row.querySelector('.dept-task-select');
-                const qtyInput = row.querySelector('.dept-task-qty');
-
-                if (select && select.value) {
-                    totalItems += 1;
-
-                    const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
-                    totalQty += qty;
-                    const selectedOption = select.options[select.selectedIndex];
-                    const scorePerItem = parseFloat(selectedOption.getAttribute('data-score') || 0);
-
-                    // คำนวณ: จำนวนงาน * คะแนน
-                    totalScore += (qty * scorePerItem);
-                }
-            });
-
-            // 2. คำนวณจากรายการงานทั่วไป (taskItemsContainer) 
-            const taskRows = document.querySelectorAll('#taskItemsContainer > div');
-            taskRows.forEach(row => {
-                const select = row.querySelector('.task-select, select');
-                const qtyInput = row.querySelector('.task-qty, input[type="number"]');
-
-                if (select && select.value) {
-                    totalItems += 1;
-
-                    const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
-                    totalQty += qty;
-
-                    const selectedOption = select.options[select.selectedIndex];
-                    const scorePerItem = parseFloat(selectedOption.getAttribute('data-score') || 0);
-
-                    totalScore += (qty * scorePerItem);
-                }
-            });
-
-            // 3. แสดงผลไปยัง Elements สรุปผลด้านล่าง
-            const totalItemsEl = document.getElementById('modalTotalItems');
-            const totalQtyEl = document.getElementById('modalTotalQty');
-            const totalScoreEl = document.getElementById('modalTotalScore');
-
-            if (totalItemsEl) totalItemsEl.textContent = totalItems;
-            if (totalQtyEl) totalQtyEl.textContent = totalQty;
-            if (totalScoreEl) totalScoreEl.textContent = totalScore.toLocaleString();
-        }
-
-
 
         async function editTask(id) {
             const task = globalTasks.find(t => Number(t.id) === Number(id));
@@ -1031,7 +1035,6 @@
             if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-edit mr-2 text-emerald-300"></i> แก้ไขงาน`;
             if (formRowId) formRowId.value = task.id;
 
-            // ตั้งค่าวันที่
             const picker = initDatePicker();
             if (task.date && picker) {
                 const parts = task.date.includes('-') ? task.date.split('-') : task.date.split('/');
@@ -1042,7 +1045,6 @@
             if (taskRecorder) taskRecorder.value = task.recorder;
             if (taskNote) taskNote.value = task.note || '';
 
-            // เคลียร์ค่าช่องรายการเดิมก่อน
             const container = document.getElementById('deptTaskItemsContainer');
             if (container) container.innerHTML = '';
             const generalContainer = document.getElementById('taskItemsContainer');
@@ -1159,7 +1161,6 @@
             const summaryEmp = document.getElementById('summaryFilterEmployee')?.value || 'ALL';
             const summaryMonth = document.getElementById('summaryFilterMonth')?.value || '';
 
-            // กรองข้อมูลงาน
             const filtered = globalTasks.filter(t => {
                 if (!t.date) return false;
 
@@ -1222,43 +1223,15 @@
             }
 
             tbody.innerHTML = summaryList.map(s => `
-        <tr class="hover:bg-slate-50 transition-colors">
-            <td class="px-4 py-3.5 font-medium text-slate-700">${s.month}</td>
-            <td class="px-4 py-3.5 font-semibold text-slate-800">${s.employee}</td>
-            <td class="px-4 py-3.5 text-center text-slate-700">${s.taskCount.toLocaleString('th-TH')}</td>
-            <td class="px-4 py-3.5 text-center text-slate-700">${s.totalQty.toLocaleString('th-TH')}</td>
-            <td class="px-4 py-3.5 text-center font-bold text-emerald-600">${s.totalScore.toLocaleString('th-TH')}</td>
-        </tr>
-    `).join('');
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-3.5 font-medium text-slate-700">${s.month}</td>
+                    <td class="px-4 py-3.5 font-semibold text-slate-800">${s.employee}</td>
+                    <td class="px-4 py-3.5 text-center text-slate-700">${s.taskCount.toLocaleString('th-TH')}</td>
+                    <td class="px-4 py-3.5 text-center text-slate-700">${s.totalQty.toLocaleString('th-TH')}</td>
+                    <td class="px-4 py-3.5 text-center font-bold text-emerald-600">${s.totalScore.toLocaleString('th-TH')}</td>
+                </tr>
+            `).join('');
         }
-
-        function resetSummaryFilters() {
-            const empEl = document.getElementById('summaryFilterEmployee');
-            if (empEl) empEl.value = 'ALL';
-
-            if (summaryMonthPickerInstance) {
-                summaryMonthPickerInstance.clear();
-            } else {
-                const monthEl = document.getElementById('summaryFilterMonth');
-                if (monthEl) monthEl.value = '';
-            }
-            renderMonthlySummary();
-            clearSummaryMonthFilter();
-        }
-
-
-        function clearSummaryMonthFilter(e) {
-            if (e) e.stopPropagation();
-
-            if (summaryMonthPickerInstance) {
-                summaryMonthPickerInstance.clear();
-            } else {
-                const inputEl = document.getElementById('summaryFilterMonth');
-                if (inputEl) inputEl.value = '';
-            }
-            renderMonthlySummary();
-        }
-
 
         function showToast(msg, type = 'info') {
             const toast = document.getElementById('toast');
