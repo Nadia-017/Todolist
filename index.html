@@ -66,7 +66,8 @@
 
     <header
         class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white shadow-lg sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <!-- ปรับความกว้างส่วนหัว -->
+        <div class="max-w-[96%] xl:max-w-[98%] mx-auto px-3 sm:px-6 py-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
                 <div class="flex items-center space-x-3">
                     <div
@@ -82,9 +83,9 @@
                     <span id="currentUserDisplay"
                         class="text-xs sm:text-sm font-medium text-emerald-100 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20"></span>
                     <button onclick="handleLogout()" title="ออกจากระบบ"
-                        class="text-xs sm:text-sm px-3 py-2 bg-rose-500/80 hover:bg-rose-600 text-white rounded-xl text-xs font-medium transition-colors">
+                        class="text-xs sm:text-sm px-3 py-2 bg-rose-500/80 hover:bg-rose-600 text-white rounded-xl font-medium transition-colors flex items-center gap-1.5">
                         <i class="fas fa-sign-out-alt"></i>
-                        <span> ออกจากระบบ</span>
+                        <span>ออกจากระบบ</span>
                     </button>
                 </div>
             </div>
@@ -98,7 +99,7 @@
                     </button>
 
                     <button id="tabSummaryBtn" type="button" onclick="switchMainTab('summary')"
-                        class="px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl bg-emerald-900/40 text-emerald-100 flex items-center space-x-2 transition-all whitespace-nowrap">
+                        class="px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl bg-emerald-900/40 text-emerald-100 flex items-center space-x-2 transition-all whitespace-nowrap hover:bg-emerald-900/60">
                         <i class="fas fa-chart-pie"></i>
                         <span>สรุปการทำงานรายเดือน</span>
                     </button>
@@ -107,7 +108,8 @@
         </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- ปรับความกว้างส่วน main ให้เท่ากับ header (max-w-[96%] xl:max-w-[98%]) -->
+    <main class="flex-1 max-w-[96%] xl:max-w-[98%] w-full mx-auto px-3 sm:px-6 py-6">
 
         <div id="loadingOverlay" class="flex flex-col items-center justify-center py-16 text-emerald-700 space-y-3">
             <i class="fas fa-circle-notch fa-spin text-4xl"></i>
@@ -174,7 +176,7 @@
         let rowCounter = 0;
         let summaryMonthPickerInstance = null;
         let datePickerInstance = null;
-        let taskIdToDelete = null; 
+        let taskIdToDelete = null;
 
         window.onload = async function () {
             await loadHtmlComponents();
@@ -276,78 +278,23 @@
             return dateStr;
         }
 
-        // เรนเดอร์แถวตาราง (แสดงปุ่มลบเฉพาะแอดมินเท่านั้น)
-        function renderTableRows(tasks) {
-            const tbody = document.getElementById('taskTableBody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            if (tasks.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-400 font-light">ไม่พบข้อมูลภาระงานที่ตรงตามเงื่อนไข</td></tr>`;
-                return;
-            }
-
-            const isAdmin = currentUser && currentUser.role === 'admin';
-
-            tasks.forEach(task => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-emerald-50/30 transition-colors duration-150';
-
-                tr.innerHTML = `
-            <td class="px-4 py-3.5 text-slate-700 font-medium">${task.date}</td>
-            <td class="px-4 py-3.5 text-slate-700">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700">
-                    <i class="fas fa-user-circle mr-1.5 text-emerald-600"></i>${task.recorder || '-'}
-                </span>
-            </td>
-            <td class="px-4 py-3.5 text-slate-700">${task.jobType}</td>
-            <td class="px-4 py-3.5 text-center text-slate-700 font-semibold">${task.quantity}</td>
-            <td class="px-4 py-3.5 text-center">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100/60 text-emerald-700">
-                    ${task.score ? Number(task.score).toLocaleString('th-TH') : 0} คะแนน
-                </span>
-            </td>
-            <td class="px-4 py-3.5 text-slate-600 max-w-xs truncate">${task.note || '-'}</td>
-            
-            <!-- ปุ่มลบ: แสดงเฉพาะ Admin เท่านั้น ถ้าไม่ใช่ให้เว้นว่างไว้ -->
-            <td class="px-4 py-3.5 text-center">
-                ${isAdmin ? `
-                    <button onclick="deleteTask(${task.id})" class="w-9 h-9 mx-auto bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="ลบข้อมูล">
-                        <i class="fas fa-trash-alt text-xs"></i>
-                    </button>
-                ` : `<span class="text-slate-300">-</span>`}
-            </td>
-
-            <!-- ปุ่มแก้ไข -->
-            <td class="px-4 py-3.5 text-center">
-                <button onclick="openEditModal(${task.id})" class="w-9 h-9 mx-auto bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="แก้ไขข้อมูล">
-                    <i class="fas fa-edit text-xs"></i>
-                </button>
-            </td>
-        `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // ฟังก์ชันจัดการซ่อนหัวตารางช่อง "ลบ" ตามสิทธิ์ผู้ใช้งาน
         function updateDeleteColumnVisibility() {
             const thDelete = document.getElementById('thDeleteColumn');
             if (thDelete) {
                 if (currentUser && currentUser.role === 'admin') {
-                    thDelete.style.display = ''; // แสดงคอลัมน์ลบสำหรับแอดมิน
+                    thDelete.style.display = '';
                 } else {
-                    thDelete.style.display = 'none'; // ซ่อนคอลัมน์ลบสำหรับคนที่ไม่ใช่แอดมิน
+                    thDelete.style.display = 'none';
                 }
             }
         }
 
-        // ฟังก์ชัน ให้ลบช่องลบถ้าไม่ใช่แอดมิน
         function renderTableRows(tasks) {
             const tbody = document.getElementById('taskTableBody');
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            updateDeleteColumnVisibility(); // เรียกเช็คการแสดงผลหัวตาราง
+            updateDeleteColumnVisibility();
 
             if (tasks.length === 0) {
                 const colSpan = (currentUser && currentUser.role === 'admin') ? 8 : 7;
@@ -377,7 +324,6 @@
             </td>
             <td class="px-4 py-3.5 text-slate-600 max-w-xs truncate">${task.note || '-'}</td>
         `;
-                // ถ้าเป็นแอดมิน ให้ใส่คอลัมน์ปุ่มลบเข้าไปด้วย
                 if (isAdmin) {
                     rowHTML += `
                 <td class="px-4 py-3.5 text-center">
@@ -387,7 +333,6 @@
                 </td>
             `;
                 }
-                // คอลัมน์ปุ่มแก้ไข (แสดงปกติสำหรับทุกคน)
                 rowHTML += `
             <td class="px-4 py-3.5 text-center">
                 <button onclick="openEditModal(${task.id})" class="w-9 h-9 mx-auto bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="แก้ไขข้อมูล">
@@ -401,7 +346,6 @@
             });
         }
 
-        // ฟังก์ชันรองรับการเรียกจากปุ่มแก้ไข
         function openEditModal(id) {
             if (typeof editTask === 'function') {
                 editTask(id);
@@ -410,7 +354,6 @@
             }
         }
 
-        // เปิด Modal ยืนยันการลบ
         function deleteTask(taskId) {
             taskIdToDelete = taskId;
             const deleteModal = document.getElementById('deleteModal');
@@ -419,7 +362,6 @@
             }
         }
 
-        // ปิด Modal ยืนยันการลบ
         function closeDeleteModal() {
             taskIdToDelete = null;
             const deleteModal = document.getElementById('deleteModal');
@@ -428,7 +370,6 @@
             }
         }
 
-        // ผูก Event ปุ่มยืนยันการลบใน Modal
         document.addEventListener('DOMContentLoaded', () => {
             const confirmBtn = document.getElementById('confirmDeleteBtn');
             if (confirmBtn) {
@@ -502,7 +443,6 @@
         </div>
     `).join('');
         }
-
 
         function filterAndRenderTasks() {
             const filterDate = document.getElementById('filterDate')?.value || '';
@@ -638,7 +578,6 @@
             return datePickerInstance;
         }
 
-        // ฟังก์ชันล้างค่าตัวกรองเดือนในหน้าสรุปผล
         function clearSummaryMonthFilter(e) {
             if (e) e.stopPropagation();
 
@@ -650,7 +589,6 @@
             }
             renderMonthlySummary();
         }
-
 
         function initSummaryMonthPicker() {
             const inputEl = document.getElementById('summaryFilterMonth');
@@ -858,7 +796,6 @@
             if (taskModal) taskModal.classList.remove('hidden');
         }
 
-        // ฟังก์ชันเพิ่มแถวรายการงานทั่วไป
         function addTaskRow(jobType = '', quantity = 1) {
             rowCounter++;
             const rowId = `item_row_${rowCounter}`;
@@ -895,7 +832,6 @@
             calculateModalTotals();
         }
 
-        // ฟังก์ชันคำนวณผลรวมใน Modal
         function calculateModalTotals() {
             let totalItems = 0;
             let totalQty = 0;
@@ -943,7 +879,6 @@
         async function submitTaskForm(e) {
             e.preventDefault();
 
-            // ดึงค่าจากฟอร์ม
             const recorder = document.getElementById('taskRecorder')?.value || '';
             const rowId = document.getElementById('formRowId')?.value || '';
             const dateInput = document.getElementById('taskDate')?.value || '';
@@ -957,7 +892,6 @@
 
             const items = [];
 
-            // 1. ดึงข้อมูลจากส่วน "รายละเอียดงานตามแผนก"
             const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
             deptRows.forEach(r => {
                 const select = r.querySelector('.dept-task-select');
@@ -1013,11 +947,36 @@
                 }
             }
         }
-
-
+        
         function closeTaskModal() {
             const taskModal = document.getElementById('taskModal');
             if (taskModal) taskModal.classList.add('hidden');
+
+            const taskForm = document.getElementById('taskForm');
+            if (taskForm) taskForm.reset();
+
+            const formRowId = document.getElementById('formRowId');
+            if (formRowId) formRowId.value = '';
+
+            const deptSelect = document.getElementById('departmentSelect');
+            if (deptSelect) deptSelect.value = '';
+
+            const wrapper = document.getElementById('deptTaskWrapper');
+            if (wrapper) wrapper.classList.add('hidden');
+
+            const container = document.getElementById('taskItemsContainer');
+            if (container) container.innerHTML = '';
+
+            const deptContainer = document.getElementById('deptTaskItemsContainer');
+            if (deptContainer) deptContainer.innerHTML = '';
+
+            const totalItemsEl = document.getElementById('modalTotalItems');
+            const totalQtyEl = document.getElementById('modalTotalQty');
+            const totalScoreEl = document.getElementById('modalTotalScore');
+
+            if (totalItemsEl) totalItemsEl.textContent = '0';
+            if (totalQtyEl) totalQtyEl.textContent = '0';
+            if (totalScoreEl) totalScoreEl.textContent = '0';
         }
 
         async function editTask(id) {

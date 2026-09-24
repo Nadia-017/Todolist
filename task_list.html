@@ -1,10 +1,10 @@
 <!-- TAB 1: TASK LIST -->
-<div id="tabTasks" class="space-y-6 hidden">
-    <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-emerald-100 space-y-3 text-lg sm:text-xl">
+<div id="tabTasks" class="w-full max-w-[96%] xl:max-w-[98%] mx-auto space-y-6 hidden">
+    <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-emerald-100 space-y-3 text-lg sm:text-xl w-full">
         <div id="filterGridContainer" class="flex flex-col md:flex-row md:items-end justify-between gap-3">
             
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1">
-                <div class="w-full sm:w-64">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1 w-full">
+                <div class="w-full sm:w-72">
                     <label class="block text-xs sm:text-sm font-semibold text-slate-600 mb-1">
                         <i class="fas fa-search text-emerald-600 mr-1"></i> ค้นหา
                     </label>
@@ -34,25 +34,29 @@
 
         </div>
     </div>
+
+    <!-- Table View Container -->
+    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden w-full">
+        <div class="overflow-x-auto w-full">
+            <table class="w-full text-left border-collapse min-w-[850px]">
+                <thead>
+                    <tr class="bg-empty bg-emerald-50/80 text-emerald-800 uppercase font-bold tracking-wider border-b border-emerald-100 text-xs sm:text-sm">
+                        <th class="px-5 py-3.5">วันที่</th>
+                        <th class="px-5 py-3.5">ผู้บันทึก</th>
+                        <th class="px-5 py-3.5">ประเภทงาน</th>
+                        <th class="px-5 py-3.5 text-center">จำนวน</th>
+                        <th class="px-5 py-3.5 text-center">ผลคะแนน</th>
+                        <th class="px-5 py-3.5">หมายเหตุ</th>
+                        <!-- ใส่ id เพื่อให้ระบบซ่อนหัวคอลัมน์นี้ได้สำหรับคนที่ไม่ใช่แอดมิน -->
+                        <th id="thDeleteColumn" class="px-4 py-3.5 text-center w-16">ลบ</th>
+                        <th class="px-4 py-3.5 text-center w-16">แก้ไข</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Card View Container -->
+    <div id="cardViewContainer" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full"></div>
 </div>
-
-<!-- Table View Container -->
-<table class="w-full text-left border-collapse">
-    <thead>
-        <tr class="bg-emerald-50/80 text-emerald-800 uppercase font-bold tracking-wider border-b border-emerald-100 text-xs sm:text-sm">
-            <th class="px-4 py-3.5">วันที่</th>
-            <th class="px-4 py-3.5">ผู้บันทึก</th>
-            <th class="px-4 py-3.5">ประเภทงาน</th>
-            <th class="px-4 py-3.5 text-center">จำนวน</th>
-            <th class="px-4 py-3.5 text-center">ผลคะแนน</th>
-            <th class="px-4 py-3.5">หมายเหตุ</th>
-            <!-- ใส่ id เพื่อให้ระบบซ่อนหัวคอลัมน์นี้ได้สำหรับคนที่ไม่ใช่แอดมิน -->
-            <th id="thDeleteColumn" class="px-4 py-3.5 text-center w-16">ลบ</th>
-            <th class="px-4 py-3.5 text-center w-16">แก้ไข</th>
-        </tr>
-    </thead>
-    <tbody id="taskTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
-</table>
-
-<!-- Card View Container -->
-<div id="cardViewContainer" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>

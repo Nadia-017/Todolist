@@ -1,7 +1,7 @@
 <!-- TAB 2: MONTHLY SUMMARY -->
-<div id="tabSummary" class="space-y-6">
+<div id="tabSummary" class="w-full max-w-[96%] xl:max-w-[98%] mx-auto space-y-6">
 
-    <div id="summaryGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div id="summaryGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
         <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex items-center space-x-4">
             <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
@@ -77,17 +77,17 @@
     </div>
 
     <!-- ตารางแสดงสรุปรายเดือน -->
-    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+    <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden w-full">
+        <div class="overflow-x-auto w-full">
+            <table class="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                     <tr
                         class="bg-emerald-50/80 text-emerald-900 text-xs sm:text-sm uppercase font-bold tracking-wider border-b border-emerald-100">
-                        <th class="px-4 py-3.5">ประจำเดือน</th>
-                        <th class="px-4 py-3.5">ผู้บันทึก / พนักงาน</th>
-                        <th class="px-4 py-3.5 text-center">จำนวนงาน (รายการ)</th>
-                        <th class="px-4 py-3.5 text-center">จำนวนชิ้นงานรวม</th>
-                        <th class="px-4 py-3.5 text-center">ผลคะแนนรวม</th>
+                        <th class="px-6 py-4">ประจำเดือน</th>
+                        <th class="px-6 py-4">ผู้บันทึก / พนักงาน</th>
+                        <th class="px-6 py-4 text-center">จำนวนงาน (รายการ)</th>
+                        <th class="px-6 py-4 text-center">จำนวนชิ้นงานรวม</th>
+                        <th class="px-6 py-4 text-center">ผลคะแนนรวม</th>
                     </tr>
                 </thead>
                 <tbody id="summaryTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
