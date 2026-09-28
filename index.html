@@ -947,7 +947,7 @@
                 }
             }
         }
-        
+
         function closeTaskModal() {
             const taskModal = document.getElementById('taskModal');
             if (taskModal) taskModal.classList.add('hidden');
@@ -1182,14 +1182,23 @@
             }
 
             tbody.innerHTML = summaryList.map(s => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-4 py-3.5 font-medium text-slate-700">${s.month}</td>
-                    <td class="px-4 py-3.5 font-semibold text-slate-800">${s.employee}</td>
-                    <td class="px-4 py-3.5 text-center text-slate-700">${s.taskCount.toLocaleString('th-TH')}</td>
-                    <td class="px-4 py-3.5 text-center text-slate-700">${s.totalQty.toLocaleString('th-TH')}</td>
-                    <td class="px-4 py-3.5 text-center font-bold text-emerald-600">${s.totalScore.toLocaleString('th-TH')}</td>
-                </tr>
-            `).join('');
+    <tr class="hover:bg-slate-50 transition-colors">
+        <td class="px-4 py-3.5 font-medium text-slate-700">${s.month}</td>
+        <td class="px-4 py-3.5">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700">
+                <i class="fas fa-user-circle mr-1.5 text-emerald-600"></i>${s.employee || '-'}
+            </span>
+        </td>
+        <td class="px-4 py-3.5 text-center text-slate-700">${s.taskCount.toLocaleString('th-TH')}</td>
+        <td class="px-4 py-3.5 text-center text-slate-700">${s.totalQty.toLocaleString('th-TH')}</td>
+        <td class="px-4 py-3.5 text-center">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100/60 text-emerald-700">
+                <i class="fas mr-1.5 text-emerald-600"></i>${s.totalScore ? Number(s.totalScore).toLocaleString('th-TH') : 0} คะแนน
+            </span>
+        </td>
+    </tr>
+`).join('');
+
         }
 
         function showToast(msg, type = 'info') {
