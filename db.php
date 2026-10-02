@@ -234,7 +234,7 @@ if ($action === 'get_dept_tasks') {
         'it'              => 'it_types',
         'administrative'  => 'administrative_types',
         'hr'              => 'hr_types',
-        'community'       => 'community_types'
+        'community'       => 'community_types',
     ];
 
     if (!isset($table_map[$dept])) {

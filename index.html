@@ -1020,7 +1020,7 @@
 
             if (parsedItems && parsedItems.length > 0) {
                 let foundDept = '';
-                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr'];
+                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community' ];
                 const firstJobName = parsedItems[0].jobType;
 
                 for (const dept of departments) {
@@ -1058,7 +1058,7 @@
             } else if (task.jobType) {
                 const jobs = task.jobType.split(',').map(j => j.trim());
                 let foundDept = '';
-                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr'];
+                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community' ];
 
                 for (const dept of departments) {
                     try {

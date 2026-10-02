@@ -84,6 +84,8 @@ const [jobTypesRows] = await pool.query(`
   SELECT type_name AS type FROM administrative_types
   UNION ALL
   SELECT type_name AS type FROM hr_types
+  UNION ALL
+  SELECT type_name AS type FROM community_types
 `);
 
 
