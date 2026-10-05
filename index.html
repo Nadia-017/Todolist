@@ -289,6 +289,66 @@
             }
         }
 
+        // ดึงรายการไฟล์แนบของงาน (จากคอลัมน์ photo หรือ task_items)
+        function getTaskPhotos(task) {
+            let list = [];
+            try {
+                const raw = typeof task.photo === 'string' ? task.photo.trim() : '';
+                if (raw.startsWith('[')) list = JSON.parse(raw) || [];
+            } catch (e) { list = []; }
+
+            if (!list.length && task.task_items) {
+                try {
+                    const items = typeof task.task_items === 'string' ? JSON.parse(task.task_items) : task.task_items;
+                    (items || []).forEach(it => {
+                        (it.photos || (it.photo ? [it.photo] : [])).forEach(x => list.push(x));
+                    });
+                } catch (e) { }
+            }
+            return [...new Set(list.filter(x => typeof x === 'string' && x.startsWith('uploads/')))];
+        }
+
+        // ปุ่มคลิป แสดงเมื่องานนั้นมีไฟล์แนบ
+        function taskPhotoBtnHtml(task, cls) {
+            const n = getTaskPhotos(task).length;
+            if (!n) return '';
+            return `<button onclick="showTaskFiles(${task.id})" class="${cls}" title="ดูไฟล์แนบ (${n})">
+                        <i class="fas fa-paperclip text-xs"></i><span class="text-[10px] ml-0.5 font-semibold">${n}</span>
+                    </button>`;
+        }
+
+        function showTaskFiles(id) {
+            const task = globalTasks.find(t => Number(t.id) === Number(id));
+            if (!task) return;
+            const list = getTaskPhotos(task);
+            if (!list.length) return;
+
+            const cells = list.map(path => {
+                const url = escAttr(fileUrl(path));
+                const name = escAttr(path.split('/').pop());
+                const isImg = /\.(jpe?g|png|gif|webp)$/i.test(path);
+                const thumb = isImg
+                    ? `<img src="${url}" alt="photo" class="w-full h-28 object-cover rounded-xl border border-slate-200">`
+                    : `<div class="w-full h-28 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex flex-col items-center justify-center gap-1"><i class="fas fa-file-alt text-2xl"></i><span class="text-[10px] px-2 truncate max-w-full">${name}</span></div>`;
+                return `<a href="${url}" target="_blank" rel="noopener" class="block hover:opacity-90 transition">${thumb}</a>`;
+            }).join('');
+
+            document.getElementById('taskFilesOverlay')?.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'taskFilesOverlay';
+            overlay.className = 'fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+            overlay.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                        <h3 class="font-bold text-sm text-slate-800"><i class="fas fa-paperclip text-sky-600 mr-1.5"></i>ไฟล์แนบ (${list.length}) · ${escAttr(task.recorder || '')}</h3>
+                        <button type="button" class="text-slate-400 hover:text-slate-700 p-1" onclick="document.getElementById('taskFilesOverlay').remove()"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-4 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3">${cells}</div>
+                </div>`;
+            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+
         function renderTableRows(tasks) {
             const tbody = document.getElementById('taskTableBody');
             if (!tbody) return;
@@ -335,9 +395,12 @@
                 }
                 rowHTML += `
             <td class="px-4 py-3.5 text-center">
-                <button onclick="openEditModal(${task.id})" class="w-9 h-9 mx-auto bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="แก้ไขข้อมูล">
+              <div class="flex items-center justify-center gap-1.5">
+                ${taskPhotoBtnHtml(task, 'h-9 px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95')}
+                <button onclick="openEditModal(${task.id})" class="w-9 h-9 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow active:scale-95" title="แก้ไขข้อมูล">
                     <i class="fas fa-edit text-xs"></i>
                 </button>
+              </div>
             </td>
         `;
 
@@ -425,6 +488,7 @@
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : ''}
+                    ${taskPhotoBtnHtml(t, 'text-slate-400 hover:text-sky-600 p-1 rounded-lg hover:bg-slate-50 flex items-center')}
                     <button onclick="openEditModal(${t.id})" class="text-slate-400 hover:text-emerald-600 p-1 rounded-lg hover:bg-slate-50" title="แก้ไข">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -615,6 +679,10 @@
             }
         }
 
+        function isAdminUser() {
+            return !!(currentUser && currentUser.role === 'admin');
+        }
+
         function getSortedDeptTasks() {
             return [...currentDeptTasks].sort((a, b) =>
                 (a.task_name || '').localeCompare(b.task_name || '', 'th')
@@ -653,7 +721,7 @@
             }
         }
 
-        function addDeptTaskRow(selectedTask = '', qty = 1) {
+        function addDeptTaskRow(selectedTask = '', qty = 1, photos = [], savedScore = null) {
             const container = document.getElementById('deptTaskItemsContainer');
             if (!container) return;
 
@@ -667,8 +735,8 @@
             });
 
             const rowHtml = `
-                <div id="${rowId}" class="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-                    <div class="flex-1 relative dept-task-combobox">
+                <div id="${rowId}" class="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+                    <div class="flex-1 min-w-[12rem] relative dept-task-combobox">
                         <select class="dept-task-select sr-only" tabindex="-1" aria-hidden="true" onchange="calculateModalTotals()">
                             ${optionsHtml}
                         </select>
@@ -685,16 +753,44 @@
                         <input type="number" min="1" value="${qty}" placeholder="จำนวน" oninput="calculateModalTotals()"
                             class="dept-task-qty w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-2.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
+                    ${isAdminUser() ? `
+                    <div class="w-24" title="คะแนนรายการนี้ (แอดมินแก้ไขได้)">
+                        <input type="number" min="0" step="0.01" value="0" placeholder="คะแนน"
+                            oninput="this.closest('[id^=dept-row-]').dataset.manual='1'; calculateModalTotals()"
+                            class="dept-task-score w-full border border-slate-200 text-sm rounded-xl p-2.5 text-center font-semibold bg-amber-50 text-amber-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>` : `<input type="hidden" class="dept-task-score" value="0">`}
                     <button type="button" onclick="removeDeptTaskRow('${rowId}')"
                         class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors flex-shrink-0">
                         <i class="fas fa-trash-alt text-sm"></i>
                     </button>
+                    <div class="dept-photo-wrap w-full flex items-center gap-1.5 flex-wrap pt-2 border-t border-dashed border-slate-200">
+                        <input type="file" class="dept-photo-input hidden" multiple
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                            onchange="handleDeptFileChange('${rowId}', this)">
+                        <input type="hidden" class="dept-photo-path" value="[]">
+                        <button type="button" class="dept-photo-btn w-10 h-10 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-600 flex items-center justify-center transition-colors"
+                            title="แนบรูปหรือไฟล์ (เลือกได้หลายไฟล์)"
+                            onclick="this.parentElement.querySelector('.dept-photo-input').click()">
+                            <i class="fas fa-paperclip text-sm"></i>
+                        </button>
+                        <div class="dept-photo-preview flex items-center gap-1.5 flex-wrap"></div>
+                        <span class="text-xs text-slate-400">แนบรูปหรือไฟล์ (เลือกได้หลายไฟล์)</span>
+                    </div>
                 </div>
             `;
 
             container.insertAdjacentHTML('beforeend', rowHtml);
             const rowEl = document.getElementById(rowId);
             if (rowEl) initDeptTaskCombobox(rowEl);
+            if (rowEl && photos && photos.length) setDeptPhotos(rowEl, photos, []);
+            if (rowEl && savedScore !== null && savedScore !== undefined && savedScore !== '') {
+                const sel = rowEl.querySelector('.dept-task-select');
+                const unit = parseFloat(sel?.options[sel.selectedIndex]?.getAttribute('data-score')) || 0;
+                const sc = parseFloat(savedScore) || 0;
+                rowEl.querySelector('.dept-task-score').value = sc;
+                // ถ้าคะแนนที่บันทึกไว้ต่างจากสูตร (จำนวน x คะแนน/หน่วย) ให้ถือว่าถูกแก้ด้วยมือ
+                if (Math.abs(sc - (parseFloat(qty) || 0) * unit) > 0.001) rowEl.dataset.manual = '1';
+            }
             calculateModalTotals();
         }
 
@@ -763,9 +859,117 @@
             });
         }
 
+        // ---------- แนบรูป/ไฟล์ ต่อรายการงาน (หลายไฟล์) ----------
+        function escAttr(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function fileUrl(path) {
+            return 'db.php?action=view_file&path=' + encodeURIComponent(path);
+        }
+
+        function getDeptPhotos(rowEl) {
+            try { return JSON.parse(rowEl.querySelector('.dept-photo-path').value || '[]') || []; }
+            catch (e) { return []; }
+        }
+
+        // photos = รายการทั้งหมดของแถว, newOnes = ไฟล์ที่เพิ่งอัปโหลด (ยังไม่เคยบันทึก)
+        function setDeptPhotos(rowEl, photos, newOnes) {
+            const pathInput = rowEl.querySelector('.dept-photo-path');
+            const preview = rowEl.querySelector('.dept-photo-preview');
+            const fileInput = rowEl.querySelector('.dept-photo-input');
+            if (!pathInput || !preview) return;
+
+            pathInput.value = JSON.stringify(photos);
+            rowEl.dataset.newPhotos = JSON.stringify(newOnes || []);
+            if (fileInput) fileInput.value = '';
+
+            preview.innerHTML = photos.map((path, i) => {
+                const isImg = /\.(jpe?g|png|gif|webp)$/i.test(path);
+                const name = path.split('/').pop();
+                const thumb = isImg
+                    ? `<img src="${escAttr(fileUrl(path))}" alt="photo" class="w-10 h-10 rounded-xl object-cover border border-slate-200">`
+                    : `<span class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-500 flex items-center justify-center"><i class="fas fa-file-alt"></i></span>`;
+                return `<div class="relative">
+                    <a href="${escAttr(fileUrl(path))}" target="_blank" rel="noopener" title="${escAttr(name)}">${thumb}</a>
+                    <button type="button" onclick="removeDeptPhoto(this.closest('[id^=dept-row-]').id, ${i})"
+                        class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-[10px]" title="ลบไฟล์แนบ">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        function deleteServerFile(path) {
+            return fetch('db.php?action=delete_file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+            }).catch(() => {});
+        }
+
+        async function handleDeptFileChange(rowId, input) {
+            const rowEl = document.getElementById(rowId);
+            const files = input.files ? Array.from(input.files) : [];
+            if (!rowEl || !files.length) return;
+
+            const btn = rowEl.querySelector('.dept-photo-btn');
+            const oldBtnHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+            btn.disabled = true;
+            rowEl.dataset.uploading = '1';
+
+            let photos = getDeptPhotos(rowEl);
+            let newOnes = JSON.parse(rowEl.dataset.newPhotos || '[]');
+
+            try {
+                for (const file of files) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        showToast(`${file.name} ใหญ่เกิน 5 MB`, 'error');
+                        continue;
+                    }
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const res = await fetch('db.php?action=upload_file', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (data.success) {
+                        photos.push(data.path);
+                        newOnes.push(data.path);
+                    } else {
+                        showToast(data.error || `อัปโหลด ${file.name} ไม่สำเร็จ`, 'error');
+                    }
+                }
+            } catch (err) {
+                showToast('อัปโหลดไฟล์ไม่สำเร็จ: ' + err.message, 'error');
+            } finally {
+                setDeptPhotos(rowEl, photos, newOnes);
+                btn.innerHTML = oldBtnHtml;
+                btn.disabled = false;
+                rowEl.dataset.uploading = '0';
+            }
+        }
+
+        async function removeDeptPhoto(rowId, index) {
+            const rowEl = document.getElementById(rowId);
+            if (!rowEl) return;
+            const photos = getDeptPhotos(rowEl);
+            let newOnes = JSON.parse(rowEl.dataset.newPhotos || '[]');
+            const path = photos[index];
+            if (path === undefined) return;
+
+            photos.splice(index, 1);
+            // ลบไฟล์บนเซิร์ฟเวอร์เฉพาะไฟล์ที่เพิ่งอัปโหลดและยังไม่เคยบันทึก
+            if (newOnes.includes(path)) {
+                newOnes = newOnes.filter(x => x !== path);
+                await deleteServerFile(path);
+            }
+            setDeptPhotos(rowEl, photos, newOnes);
+        }
+
         function removeDeptTaskRow(rowId) {
             const row = document.getElementById(rowId);
             if (row) {
+                JSON.parse(row.dataset.newPhotos || '[]').forEach(deleteServerFile);
                 row.remove();
                 calculateModalTotals();
             }
@@ -842,13 +1046,20 @@
                 const select = row.querySelector('.dept-task-select');
                 const qtyInput = row.querySelector('.dept-task-qty');
 
+                const scoreInput = row.querySelector('.dept-task-score');
+
                 if (select && select.value) {
                     totalItems += 1;
                     const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
                     totalQty += qty;
                     const selectedOption = select.options[select.selectedIndex];
                     const scorePerItem = parseFloat(selectedOption?.getAttribute('data-score') || 0);
-                    totalScore += (qty * scorePerItem);
+
+                    // ยังไม่ถูกแก้ด้วยมือ -> คำนวณอัตโนมัติ
+                    if (scoreInput && row.dataset.manual !== '1') {
+                        scoreInput.value = Math.round(qty * scorePerItem * 100) / 100;
+                    }
+                    totalScore += scoreInput ? (parseFloat(scoreInput.value) || 0) : (qty * scorePerItem);
                 }
             });
 
@@ -893,6 +1104,10 @@
             const items = [];
 
             const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
+            if ([...deptRows].some(r => r.dataset.uploading === '1')) {
+                showToast('กำลังอัปโหลดไฟล์ กรุณารอสักครู่', 'error');
+                return;
+            }
             deptRows.forEach(r => {
                 const select = r.querySelector('.dept-task-select');
                 const qtyInput = r.querySelector('.dept-task-qty');
@@ -904,7 +1119,11 @@
                     const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
 
                     if (jobType && qty > 0) {
-                        items.push({ jobType, quantity: qty, score: qty * scorePerUnit });
+                        let photos = [];
+                        try { photos = JSON.parse(r.querySelector('.dept-photo-path')?.value || '[]') || []; } catch (e) {}
+                        const scoreInput = r.querySelector('.dept-task-score');
+                        const score = scoreInput ? (parseFloat(scoreInput.value) || 0) : qty * scorePerUnit;
+                        items.push({ jobType, quantity: qty, score, photos });
                     }
                 }
             });
@@ -1045,7 +1264,7 @@
                     if (wrapper) wrapper.classList.remove('hidden');
 
                     parsedItems.forEach(item => {
-                        addDeptTaskRow(item.jobType, item.quantity);
+                        addDeptTaskRow(item.jobType, item.quantity, item.photos || (item.photo ? [item.photo] : []), item.score);
                     });
                 } else {
                     if (deptSelect) deptSelect.value = '';
@@ -1108,9 +1327,6 @@
 
             if (taskModal) taskModal.classList.remove('hidden');
 
-            setTimeout(() => {
-                calculateModalTotals();
-            }, 50);
         }
 
         function renderMonthlySummary() {
@@ -1221,10 +1437,6 @@
             toast.classList.remove('translate-y-20', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
 
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
         }
 
     </script>
