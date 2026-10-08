@@ -68,25 +68,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
 
         $jobTypeStr = implode(', ', $combinedJobTypes);
 
+        $pdo->beginTransaction();
+
         if ($rowId && intval($rowId) > 0) {
-            // UPDATE
+            // UPDATE ตารางหลัก
             $stmt = $pdo->prepare("
                 UPDATE tasks 
                 SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?
                 WHERE id = ?
             ");
             $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $rowId]);
+
+            // อัปเดตข้อมูลล่าสุดในตารางสำรอง (แถวล่าสุดของงานนี้)
+            $stmtBk = $pdo->prepare("
+                UPDATE tasks_backup 
+                SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?
+                WHERE task_id = ?
+                ORDER BY id DESC LIMIT 1
+            ");
+            $stmtBk->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $rowId]);
         } else {
-            // INSERT
+            // INSERT ตารางหลัก
             $stmt = $pdo->prepare("
                 INSERT INTO tasks (task_date, recorder_name, job_type, quantity, score, note)
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note]);
+            $newId = $pdo->lastInsertId();
+
+            // INSERT ตารางสำรอง (คัดลอกจากแถวที่เพิ่งเพิ่ม)
+            $stmtBk = $pdo->prepare("
+                INSERT INTO tasks_backup 
+                    (task_id, task_date, recorder_name, job_type, quantity, score, note, photo, task_items, created_at)
+                SELECT id, task_date, recorder_name, job_type, quantity, score, note, photo, task_items, created_at
+                FROM tasks WHERE id = ?
+            ");
+            $stmtBk->execute([$newId]);
         }
+
+        $pdo->commit();
 
         echo json_encode(['success' => true, 'message' => 'บันทึกข้อมูลเรียบร้อยแล้ว']);
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     exit;

@@ -587,7 +587,16 @@
                 }
             }
 
-            if (currentUser && currentUser.role === 'admin') {
+            if (taskRecorderSelect && currentUser && currentUser.canSwitch) {
+                let el = taskRecorderSelect;
+                while (el && el.id !== 'taskModal') {
+                    el.classList.remove('hidden');
+                    el = el.parentElement;
+                }
+                taskRecorderSelect.disabled = false;
+            }
+
+            if (currentUser && (currentUser.role === 'admin' || currentUser.canSwitch)) {
                 if (filterEmpCard) filterEmpCard.classList.remove('hidden');
                 if (filterGridContainer) {
                     filterGridContainer.classList.remove('lg:grid-cols-3');
@@ -616,8 +625,8 @@
             const filterJob = document.getElementById('filterJobType');
             let optionsHtml = '<option value="ALL">-- ทุกประเภทงาน --</option>';
 
-            globalJobTypes.forEach(j => {
-                optionsHtml += `<option value="${j.type}">${j.type} (${j.score} คะแนน)</option>`;
+            globalJobTypes.forEach((j, index) => {
+                optionsHtml += `<option value="${j.type}">${index + 1}. ${j.type} (${j.score} คะแนน)</option>`;
             });
 
             if (filterJob) filterJob.innerHTML = optionsHtml;
@@ -729,9 +738,9 @@
 
             let optionsHtml = '<option value="" disabled selected>-- เลือกรายละเอียดงาน --</option>';
             const sortedDeptTasks = getSortedDeptTasks();
-            sortedDeptTasks.forEach(task => {
+            sortedDeptTasks.forEach((task, index) => {
                 const isSelected = task.task_name === selectedTask ? 'selected' : '';
-                optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${task.task_name}</option>`;
+                optionsHtml += `<option value="${task.task_name}" data-score="${task.score || 0}" ${isSelected}>${index + 1}. ${task.task_name}</option>`;
             });
 
             const rowHtml = `
@@ -802,7 +811,8 @@
 
             let activeIndex = -1;
 
-            const getOptions = () => getSortedDeptTasks().map(t => ({
+            const getOptions = () => getSortedDeptTasks().map((t, i) => ({
+                no: i + 1,
                 value: t.task_name,
                 label: t.task_name,
                 score: t.score || 0
@@ -824,7 +834,7 @@
                 list.innerHTML = options.map(o => `
                     <div data-value="${o.value}"
                         class="px-3.5 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer transition-colors">
-                        ${o.label}${o.score ? ` <span class="text-xs text-slate-400">(${o.score} คะแนน)</span>` : ''}
+                        ${o.no}. ${o.label}${o.score ? ` <span class="text-xs text-slate-400">(${o.score} คะแนน)</span>` : ''}
                     </div>
                 `).join('');
                 list.querySelectorAll('[data-value]').forEach(el => {
@@ -905,7 +915,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path })
-            }).catch(() => {});
+            }).catch(() => { });
         }
 
         async function handleDeptFileChange(rowId, input) {
@@ -1008,10 +1018,10 @@
 
             let jobOptionsHtml = '<option value="">-- เลือกประเภทงาน --</option>';
             if (typeof globalJobTypes !== 'undefined') {
-                globalJobTypes.forEach(j => {
+                globalJobTypes.forEach((j, index) => {
                     const currentType = (j.type || j.type_name || '').toString().trim();
                     const selected = (currentType.toLowerCase() === jobType.toString().trim().toLowerCase()) ? 'selected' : '';
-                    jobOptionsHtml += `<option value="${currentType}" data-score="${j.score}" ${selected}>${currentType} (${j.score} คะแนน/หน่วย)</option>`;
+                    jobOptionsHtml += `<option value="${currentType}" data-score="${j.score}" ${selected}>${index + 1}. ${currentType} (${j.score} คะแนน/หน่วย)</option>`;
                 });
             }
 
@@ -1088,84 +1098,84 @@
         }
 
         async function submitTaskForm(e) {
-            e.preventDefault();
+    e.preventDefault();
 
-            const recorder = document.getElementById('taskRecorder')?.value || '';
-            const rowId = document.getElementById('formRowId')?.value || '';
-            const dateInput = document.getElementById('taskDate')?.value || '';
-            const note = document.getElementById('taskNote')?.value || '';
+    const recorder = document.getElementById('taskRecorder')?.value || '';
+    const rowId = document.getElementById('formRowId')?.value || '';
+    const dateInput = document.getElementById('taskDate')?.value || '';
+    const note = document.getElementById('taskNote')?.value || '';
 
-            let date = dateInput;
-            if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
-                const d = datePickerInstance.selectedDates[0];
-                date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            }
+    let date = dateInput;
+    if (datePickerInstance && datePickerInstance.selectedDates.length > 0) {
+        const d = datePickerInstance.selectedDates[0];
+        date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
 
-            const items = [];
+    const items = [];
 
-            const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
-            if ([...deptRows].some(r => r.dataset.uploading === '1')) {
-                showToast('กำลังอัปโหลดไฟล์ กรุณารอสักครู่', 'error');
-                return;
-            }
-            deptRows.forEach(r => {
-                const select = r.querySelector('.dept-task-select');
-                const qtyInput = r.querySelector('.dept-task-qty');
+    const deptRows = document.querySelectorAll('#deptTaskItemsContainer > div');
+    if ([...deptRows].some(r => r.dataset.uploading === '1')) {
+        showToast('กำลังอัปโหลดไฟล์ กรุณารอสักครู่', 'error');
+        return;
+    }
+    deptRows.forEach(r => {
+        const select = r.querySelector('.dept-task-select');
+        const qtyInput = r.querySelector('.dept-task-qty');
 
-                if (select && qtyInput) {
-                    const jobType = select.value;
-                    const qty = parseFloat(qtyInput.value) || 0;
-                    const selectedOption = select.options[select.selectedIndex];
-                    const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
+        if (select && qtyInput) {
+            const jobType = select.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+            const selectedOption = select.options[select.selectedIndex];
+            const scorePerUnit = parseFloat(selectedOption?.getAttribute('data-score')) || 0;
 
-                    if (jobType && qty > 0) {
-                        let photos = [];
-                        try { photos = JSON.parse(r.querySelector('.dept-photo-path')?.value || '[]') || []; } catch (e) {}
-                        const scoreInput = r.querySelector('.dept-task-score');
-                        const score = scoreInput ? (parseFloat(scoreInput.value) || 0) : qty * scorePerUnit;
-                        items.push({ jobType, quantity: qty, score, photos });
-                    }
-                }
-            });
-
-            if (items.length === 0) {
-                showToast('กรุณาเลือกรายการงานและระบุจำนวนอย่างน้อย 1 รายการ', 'error');
-                return;
-            }
-
-            const submitBtn = document.getElementById('submitBtn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...`;
-            }
-
-            try {
-                const response = await fetch('db.php?action=save_task', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rowId, date, recorder, note, items })
-                });
-
-                const res = await response.json();
-
-                if (res && res.success) {
-                    showToast(res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
-                    closeTaskModal();
-                    await loadDataFromBackend();
-                    switchMainTab('tasks');
-                    filterAndRenderTasks();
-                } else {
-                    showToast(res?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
-                }
-            } catch (err) {
-                showToast('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message, 'error');
-            } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> <span>บันทึกข้อมูลทั้งหมด</span>`;
-                }
+            if (jobType && qty > 0) {
+                let photos = [];
+                try { photos = JSON.parse(r.querySelector('.dept-photo-path')?.value || '[]') || []; } catch (e) { }
+                const scoreInput = r.querySelector('.dept-task-score');
+                const score = scoreInput ? (parseFloat(scoreInput.value) || 0) : qty * scorePerUnit;
+                items.push({ jobType, quantity: qty, score, photos });
             }
         }
+    });
+
+    if (items.length === 0) {
+        showToast('กรุณาเลือกรายการงานและระบุจำนวนอย่างน้อย 1 รายการ', 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...`;
+    }
+
+    try {
+        const response = await fetch('db.php?action=save_task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rowId, date, recorder, note, items })
+        });
+
+        const res = await response.json();
+
+        if (res && res.success) {
+            showToast('บันทึกข้อมูลเรียบร้อยแล้ว', 'success', 3000);
+            closeTaskModal();
+            await loadDataFromBackend();
+            switchMainTab('tasks');
+            filterAndRenderTasks();
+        } else {
+            showToast(res?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+        }
+    } catch (err) {
+        showToast('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message, 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i> <span>บันทึกข้อมูลทั้งหมด</span>`;
+        }
+    }
+}
 
         function closeTaskModal() {
             const taskModal = document.getElementById('taskModal');
@@ -1239,7 +1249,7 @@
 
             if (parsedItems && parsedItems.length > 0) {
                 let foundDept = '';
-                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community' ];
+                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community'];
                 const firstJobName = parsedItems[0].jobType;
 
                 for (const dept of departments) {
@@ -1277,7 +1287,7 @@
             } else if (task.jobType) {
                 const jobs = task.jobType.split(',').map(j => j.trim());
                 let foundDept = '';
-                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community' ];
+                const departments = ['finance', 'loan', 'debt_collection', 'accounting', 'it', 'administrative', 'hr', 'community'];
 
                 for (const dept of departments) {
                     try {
@@ -1417,7 +1427,8 @@
 
         }
 
-        function showToast(msg, type = 'info') {
+        let toastTimer = null;
+        function showToast(msg, type = 'info', duration = 3000) {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMessage');
             const toastIcon = document.getElementById('toastIcon');
@@ -1437,6 +1448,11 @@
             toast.classList.remove('translate-y-20', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
 
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, duration);
         }
 
     </script>

@@ -15,7 +15,7 @@ $host     = getenv('DB_HOST')     ?: 'sql205.infinityfree.com';
 $port     = getenv('DB_PORT')     ?: '3306';
 $dbname   = getenv('DB_NAME')     ?: 'if0_42851763_todolist'; 
 $username = getenv('DB_USER')     ?: 'if0_42851763';          
-$password = getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : '1Cfhfvjs5ua'; 
+$password = getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : '0Apzcr2KyS09'; 
 
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
 
@@ -86,6 +86,29 @@ if (!isset($_SESSION['user_name'])) {
 $currentUser = $_SESSION['user_name'];
 $currentRole = $_SESSION['user_role'];
 
+// ---------- สิทธิ์ดู/บันทึกงานแทนผู้อื่น ----------
+$MANAGER_MAP = [
+    '10061' => ['10043', '10015', '20020', '51046'],
+];
+$allowedRecorders  = [trim($currentUser)]; 
+$canSwitchRecorder = false;
+try {
+    $uq = $pdo->prepare("SELECT username FROM employees WHERE id = ?");
+    $uq->execute([$_SESSION['user_id'] ?? 0]);
+    $currentUsernameVal = trim((string)$uq->fetchColumn());
+    if ($currentRole !== 'admin' && isset($MANAGER_MAP[$currentUsernameVal])) {
+        $targets = $MANAGER_MAP[$currentUsernameVal];
+        $in = implode(',', array_fill(0, count($targets), '?'));
+        $nq = $pdo->prepare("SELECT name FROM employees WHERE username IN ($in)");
+        $nq->execute($targets);
+        foreach ($nq->fetchAll(PDO::FETCH_COLUMN) as $n) {
+            $n = trim(str_replace(["\r", "\n"], '', (string)$n));
+            if ($n !== '' && !in_array($n, $allowedRecorders, true)) $allowedRecorders[] = $n;
+        }
+        $canSwitchRecorder = count($allowedRecorders) > 1;
+    }
+} catch (Exception $e) { /* ใช้สิทธิ์ปกติ */ }
+
 // ---------- ไฟล์แนบ (photo) ----------
 function safePhotoPath($p) {
     $p = trim((string)$p);
@@ -118,7 +141,6 @@ function unitScoreOf($pdo, $jobName) {
     return 0.0;
 }
 
-// ลบ .htaccess เก่าที่ทำให้ uploads ตอบ 500 (ถ้ามีค้างอยู่)
 $__ht = __DIR__ . '/uploads/.htaccess';
 if (is_file($__ht)) { @unlink($__ht); }
 
@@ -203,9 +225,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_data') {
             $stmtEmp = $pdo->query("SELECT DISTINCT TRIM(REPLACE(REPLACE(name, '\r', ''), '\n', '')) AS name FROM employees WHERE name IS NOT NULL AND TRIM(name) != '' ORDER BY id ASC");
             $employees = array_column($stmtEmp->fetchAll(), 'name');
         } else {
-            $stmtTasks = $pdo->prepare("SELECT id, DATE_FORMAT(task_date, '%d-%m-%Y') AS date, recorder_name AS recorder, job_type AS jobType, quantity, score, note, task_items, photo FROM tasks WHERE recorder_name = ? ORDER BY id DESC");
-            $stmtTasks->execute([$currentUser]);
-            $employees = [$currentUser];
+            $ph = implode(',', array_fill(0, count($allowedRecorders), '?'));
+            $stmtTasks = $pdo->prepare("SELECT id, DATE_FORMAT(task_date, '%d-%m-%Y') AS date, recorder_name AS recorder, job_type AS jobType, quantity, score, note, task_items, photo FROM tasks WHERE TRIM(recorder_name) IN ($ph) ORDER BY id DESC");
+            $stmtTasks->execute($allowedRecorders);
+            $employees = $allowedRecorders;
         }
         $tasks = $stmtTasks->fetchAll();
 
@@ -220,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_data') {
 
         echo json_encode([
             'success' => true,
-            'currentUser' => ['name' => $currentUser, 'role' => $currentRole],
+            'currentUser' => ['name' => $currentUser, 'role' => $currentRole, 'canSwitch' => $canSwitchRecorder],
             'rows' => $tasks,
             'employees' => $employees,
             'jobTypes' => $jobTypes
@@ -266,6 +289,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
 
         if ($currentRole === 'admin') {
             $recorder = !empty($inputRecorder) ? $inputRecorder : $currentUserVal;
+        } elseif ($canSwitchRecorder && in_array($inputRecorder, $allowedRecorders, true)) {
+            $recorder = $inputRecorder;
         } else {
             $recorder = $currentUserVal;
         }
@@ -316,8 +341,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
             if ($currentRole !== 'admin') {
                 $chk = $pdo->prepare("SELECT recorder_name FROM tasks WHERE id = ?");
                 $chk->execute([$rowId]);
-                $owner = $chk->fetchColumn();
-                if ($owner !== $currentUser) {
+                $owner = trim((string)$chk->fetchColumn());
+                if (!in_array($owner, $allowedRecorders, true)) {
                     throw new Exception('คุณไม่มีสิทธิ์แก้ไขรายการของผู้อื่น');
                 }
             }
@@ -327,6 +352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
             $oldStmt->execute([$rowId]);
             $oldPhotos = json_decode((string)$oldStmt->fetchColumn(), true) ?: [];
 
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare("
                 UPDATE tasks 
                 SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?, task_items = ?, photo = ?
@@ -334,15 +360,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
             ");
             $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $taskItemsJson, $photoJson, $rowId]);
 
+            // อัปเดตข้อมูลล่าสุดในตารางสำรอง (แถวล่าสุดของงานนี้)
+            $stmtBk = $pdo->prepare("
+                UPDATE tasks_backup 
+                SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?, task_items = ?, photo = ?
+                WHERE task_id = ?
+                ORDER BY id DESC LIMIT 1
+            ");
+            $stmtBk->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $taskItemsJson, $photoJson, $rowId]);
+
+            // งานเก่าที่ยังไม่เคยมีในตารางสำรอง ให้เพิ่มเข้าไปตอนแก้ไข
+            $stmtChk = $pdo->prepare("SELECT COUNT(*) FROM tasks_backup WHERE task_id = ?");
+            $stmtChk->execute([$rowId]);
+            if ((int)$stmtChk->fetchColumn() === 0) {
+                $stmtNew = $pdo->prepare("
+                    INSERT INTO tasks_backup (task_id, task_date, recorder_name, job_type, quantity, score, note, task_items, photo, created_at)
+                    SELECT id, task_date, recorder_name, job_type, quantity, score, note, task_items, photo, created_at
+                    FROM tasks WHERE id = ?
+                ");
+                $stmtNew->execute([$rowId]);
+            }
+            $pdo->commit();
+
             foreach (array_diff($oldPhotos, $photoList) as $removed) {
                 unlinkPhoto($removed);
             }
         } else {
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare("
                 INSERT INTO tasks (task_date, recorder_name, job_type, quantity, score, note, task_items, photo)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([$taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $taskItemsJson, $photoJson]);
+            $newId = (int)$pdo->lastInsertId();
+
+            // เพิ่มลงตารางสำรองด้วย
+            $stmtBk = $pdo->prepare("
+                INSERT INTO tasks_backup (task_id, task_date, recorder_name, job_type, quantity, score, note, task_items, photo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtBk->execute([$newId, $taskDate, $recorder, $jobTypeStr, $totalQty, $totalScore, $note, $taskItemsJson, $photoJson]);
+            $pdo->commit();
         }
 
         echo json_encode([
@@ -351,6 +409,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_task') {
         ], JSON_UNESCAPED_UNICODE);
 
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(200);
         echo json_encode([
             'success' => false, 
@@ -466,8 +525,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_task') {
         $ph->execute([$rowId]);
         $oldPhotos = json_decode((string)$ph->fetchColumn(), true) ?: [];
 
+        $pdo->beginTransaction();
         $stmt = $pdo->prepare("DELETE FROM tasks WHERE id = ?");
         $stmt->execute([$rowId]);
+
+        // บันทึกผู้ลบลงตารางสำรอง (ไม่ลบแถวสำรอง)
+        $stmtBk = $pdo->prepare("
+            UPDATE tasks_backup 
+            SET deleted_by_username = ?, deleted_by_name = ?, deleted_at = NOW()
+            WHERE task_id = ? AND deleted_at IS NULL
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmtBk->execute([$currentUsernameVal, $currentUser, $rowId]);
+        $pdo->commit();
 
         foreach ($oldPhotos as $p) {
             unlinkPhoto($p);
@@ -479,6 +549,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_task') {
         ], JSON_UNESCAPED_UNICODE);
 
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         http_response_code(200);
         echo json_encode([
             'success' => false, 

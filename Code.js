@@ -127,25 +127,47 @@ app.post('/api/save-task', async (req, res) => {
     const recorder = taskData.recorder || '';
     const note = taskData.note || '';
 
-    if (taskData.rowId && Number(taskData.rowId) > 0) {
-      // UPDATE
-      const updateQuery = `
-        UPDATE tasks 
-        SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?
-        WHERE id = ?
-      `;
-      await pool.execute(updateQuery, [
-        taskDate, recorder, jobTypeStr, totalQty, totalScore, note, taskData.rowId
-      ]);
-    } else {
-      // INSERT
-      const insertQuery = `
-        INSERT INTO tasks (task_date, recorder_name, job_type, quantity, score, note)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-      await pool.execute(insertQuery, [
-        taskDate, recorder, jobTypeStr, totalQty, totalScore, note
-      ]);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      if (taskData.rowId && Number(taskData.rowId) > 0) {
+        // UPDATE ตารางหลัก
+        await conn.execute(`
+          UPDATE tasks 
+          SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?
+          WHERE id = ?
+        `, [taskDate, recorder, jobTypeStr, totalQty, totalScore, note, taskData.rowId]);
+
+        // อัปเดตข้อมูลล่าสุดในตารางสำรอง (แถวล่าสุดของงานนี้)
+        await conn.execute(`
+          UPDATE tasks_backup 
+          SET task_date = ?, recorder_name = ?, job_type = ?, quantity = ?, score = ?, note = ?
+          WHERE task_id = ?
+          ORDER BY id DESC LIMIT 1
+        `, [taskDate, recorder, jobTypeStr, totalQty, totalScore, note, taskData.rowId]);
+      } else {
+        // INSERT ตารางหลัก
+        const [result] = await conn.execute(`
+          INSERT INTO tasks (task_date, recorder_name, job_type, quantity, score, note)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [taskDate, recorder, jobTypeStr, totalQty, totalScore, note]);
+
+        // INSERT ตารางสำรอง (คัดลอกจากแถวที่เพิ่งเพิ่ม)
+        await conn.execute(`
+          INSERT INTO tasks_backup 
+            (task_id, task_date, recorder_name, job_type, quantity, score, note, photo, task_items, created_at)
+          SELECT id, task_date, recorder_name, job_type, quantity, score, note, photo, task_items, created_at
+          FROM tasks WHERE id = ?
+        `, [result.insertId]);
+      }
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
     }
 
     res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
